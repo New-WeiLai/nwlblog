@@ -149,88 +149,107 @@
             <a href="/forgot-password">忘记密码？</a>
         </div>
     </div>
-    <script>
-        // 请务必修改为你的 Worker 地址
-        const API_BASE = 'https://worker.blog.nwely.top'; // 例如 https://nwlblog.你的用户名.workers.dev
+<script>
+    // 请务必修改为你的 Worker 地址
+    const API_BASE = 'https://worker.blog.nwely.top'; // 确保这个地址正确
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const loginForm = document.getElementById('loginForm');
-            const githubBtn = document.getElementById('githubBtn');
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        const githubBtn = document.getElementById('githubBtn');
 
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
+        // 处理登录表单提交
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            // 清空错误
+            document.getElementById('emailError').textContent = '';
+            document.getElementById('passwordError').textContent = '';
+            
+            if (!email) {
+                document.getElementById('emailError').textContent = '请输入邮箱';
+                return;
+            }
+            if (!password) {
+                document.getElementById('passwordError').textContent = '请输入密码';
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span class="loading"></span>登录中...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
                 
-                const email = document.getElementById('email').value.trim();
-                const password = document.getElementById('password').value;
-                const loginBtn = document.getElementById('loginBtn');
-                
-                document.getElementById('emailError').textContent = '';
-                document.getElementById('passwordError').textContent = '';
-                
-                if (!email) {
-                    document.getElementById('emailError').textContent = '请输入邮箱';
-                    return;
+                // 检查响应类型
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    // 如果不是 JSON，读取文本并抛出详细错误
+                    const text = await response.text();
+                    console.error('非 JSON 响应:', text);
+                    throw new Error(`服务器返回非 JSON 数据 (状态码: ${response.status}) - 前100字符: ${text.substring(0, 100)}`);
                 }
-                if (!password) {
-                    document.getElementById('passwordError').textContent = '请输入密码';
-                    return;
-                }
                 
-                loginBtn.disabled = true;
-                loginBtn.innerHTML = '<span class="loading"></span>登录中...';
+                const data = await response.json();
                 
-                try {
-                    const response = await fetch(`${API_BASE}/api/auth/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        localStorage.setItem('token', data.data.token);
-                        localStorage.setItem('user', JSON.stringify(data.data.user));
-                        showMessage('登录成功，正在跳转...');
-                        setTimeout(() => { window.location.href = '/'; }, 1000);
-                    } else {
-                        document.getElementById('passwordError').textContent = data.error || '登录失败';
-                        loginBtn.disabled = false;
-                        loginBtn.innerHTML = '登录';
-                    }
-                } catch (error) {
-                    document.getElementById('passwordError').textContent = '网络错误，请重试';
+                if (data.success) {
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    showMessage('登录成功，正在跳转...');
+                    setTimeout(() => { window.location.href = '/'; }, 1000);
+                } else {
+                    document.getElementById('passwordError').textContent = data.error || '登录失败';
                     loginBtn.disabled = false;
                     loginBtn.innerHTML = '登录';
                 }
-            });
-
-            githubBtn.addEventListener('click', function() {
-                window.location.href = `${API_BASE}/api/auth/github`;
-            });
-
-            function showMessage(msg, isError = false) {
-                const messageEl = document.getElementById('message');
-                messageEl.textContent = msg;
-                messageEl.className = isError ? 'error-message' : 'success-message';
-                setTimeout(() => {
-                    messageEl.textContent = '';
-                    messageEl.className = 'success-message';
-                }, 3000);
-            }
-
-            // 处理 URL 参数（GitHub 回调）
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-            const error = urlParams.get('error');
-            if (token) {
-                localStorage.setItem('token', token);
-                showMessage('GitHub登录成功，正在跳转...');
-                setTimeout(() => { window.location.href = '/'; }, 1000);
-            } else if (error) {
-                showMessage('GitHub登录失败: ' + error, true);
+            } catch (error) {
+                console.error('登录请求详细错误:', error);
+                document.getElementById('passwordError').textContent = '网络错误：' + error.message;
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '登录';
             }
         });
-    </script>
+
+        // GitHub 登录按钮
+        githubBtn.addEventListener('click', function() {
+            window.location.href = `${API_BASE}/api/auth/github`;
+        });
+
+        function showMessage(msg, isError = false) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = msg;
+            messageEl.className = isError ? 'error-message' : 'success-message';
+            setTimeout(() => {
+                messageEl.textContent = '';
+                messageEl.className = 'success-message';
+            }, 3000);
+        }
+
+        // 处理 URL 参数（GitHub 回调）
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const error = urlParams.get('error');
+        
+        if (token) {
+            localStorage.setItem('token', token);
+            showMessage('GitHub登录成功，正在跳转...');
+            setTimeout(() => { window.location.href = '/'; }, 1000);
+        } else if (error) {
+            // 显示 GitHub 返回的错误信息
+            showMessage('GitHub登录失败: ' + error, true);
+            console.error('GitHub 回调错误:', error);
+        }
+
+        // 额外调试：输出当前 API_BASE
+        console.log('当前 API_BASE =', API_BASE);
+    });
+</script>
 </body>
 </html>

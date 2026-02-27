@@ -13,6 +13,7 @@ RESEND_API_KEY = "re_PrsUWTuF_H7x54o3urdiCqHQ9x8vAtpaC"
 GITHUB_CLIENT_ID = "Ov23li2JWD53KFj3jk9L"
 GITHUB_CLIENT_SECRET = "6c208d446a8ed961482c6089db70e5c996696713"
 SITE_URL = "https://blog.nwely.top"
+WORKER_URL = "https://worker.blog.nwely.top"
 FROM_EMAIL = "no-reply@nwely.top"
 
 [triggers]
