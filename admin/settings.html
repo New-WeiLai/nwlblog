@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>站点设置 - Nwely（陌筏）の 博客</title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <style>
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .settings-section {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .settings-section h3 {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            color: #333;
+        }
+        .image-preview {
+            margin-top: 10px;
+            max-width: 300px;
+            border: 2px dashed #e1e1e1;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .image-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 4px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .checkbox-label input[type="checkbox"] {
+            width: auto;
+            margin-right: 5px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .color-picker {
+            width: 100%;
+            height: 40px;
+            padding: 5px;
+            border: 2px solid #e1e1e1;
+            border-radius: 6px;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+        .danger-zone {
+            border: 2px solid #e53e3e;
+            background: #fff5f5;
+        }
+        .danger-zone h3 {
+            color: #e53e3e;
+            border-bottom-color: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="/avatar.png" alt="Nwely" class="sidebar-logo">
+                <h2>管理后台</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html">仪表盘</a>
+                <a href="/admin/posts.html">文章管理</a>
+                <a href="/admin/users.html">用户管理</a>
+                <a href="/admin/comments.html">评论管理</a>
+                <a href="/admin/settings.html" class="active">站点设置</a>
+                <a href="#" id="logoutBtn">退出登录</a>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="admin-header">
+                <h1>站点设置</h1>
+                <div class="user-info" id="userInfo">
+                    <span>加载中...</span>
+                </div>
+            </div>
+
+            <div class="admin-content settings-container">
+                <form id="settingsForm">
+                    <!-- 基本信息 -->
+                    <div class="settings-section">
+                        <h3>基本信息</h3>
+                        <div class="form-group">
+                            <label for="siteTitle">站点标题</label>
+                            <input type="text" id="siteTitle" class="form-control" value="Nwely（陌筏）の 博客">
+                        </div>
+                        <div class="form-group">
+                            <label for="siteDescription">站点描述</label>
+                            <textarea id="siteDescription" class="form-control" rows="3">一个简洁美观的个人博客</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="footerText">页脚文本</label>
+                            <input type="text" id="footerText" class="form-control" value="© {year} Nwely的博客. All rights reserved.">
+                            <small class="form-text text-muted">使用 {year} 自动显示当前年份</small>
+                        </div>
+                    </div>
+
+                    <!-- 外观设置 -->
+                    <div class="settings-section">
+                        <h3>外观设置</h3>
+                        <div class="form-group">
+                            <label>头图</label>
+                            <div class="image-preview" id="headerPreview">
+                                <img src="/avatar.png" alt="Header">
+                            </div>
+                            <input type="file" id="headerImage" accept="image/*" style="margin-top: 10px;">
+                            <input type="hidden" id="headerImageUrl" value="/avatar.png">
+                        </div>
+                        <div class="form-group">
+                            <label>背景图</label>
+                            <div class="image-preview" id="backgroundPreview">
+                                <div style="width: 100%; height: 100px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999;">
+                                    暂无背景图
+                                </div>
+                            </div>
+                            <input type="file" id="backgroundImage" accept="image/*" style="margin-top: 10px;">
+                            <input type="hidden" id="backgroundImageUrl">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="primaryColor">主色调</label>
+                                <input type="color" id="primaryColor" class="color-picker" value="#667eea">
+                            </div>
+                            <div class="form-group">
+                                <label for="secondaryColor">辅色调</label>
+                                <input type="color" id="secondaryColor" class="color-picker" value="#764ba2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文章设置 -->
+                    <div class="settings-section">
+                        <h3>文章设置</h3>
+                        <div class="form-group">
+                            <label for="postsPerPage">每页显示文章数</label>
+                            <input type="number" id="postsPerPage" class="form-control" min="1" max="50" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="allowComments" checked>
+                                允许评论
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="commentModeration" checked>
+                                评论需要审核
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 用户设置 -->
+                    <div class="settings-section">
+                        <h3>用户设置</h3>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="allowRegistration" checked>
+                                允许新用户注册
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="requireEmailVerification">
+                                需要邮箱验证
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="defaultUserRole">默认用户角色</label>
+                            <select id="defaultUserRole" class="form-control">
+                                <option value="user">普通用户</option>
+                                <option value="admin">管理员</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 危险区域（仅超级管理员可见） -->
+                    <div class="settings-section danger-zone" id="dangerZone" style="display: none;">
+                        <h3>危险区域</h3>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="maintenanceMode">
+                                开启维护模式
+                            </label>
+                            <small class="form-text text-muted">开启后只有管理员可以访问站点</small>
+                        </div>
+                        <div class="form-group">
+                            <button type="button" class="btn btn-danger" onclick="resetSettings()">恢复默认设置</button>
+                            <button type="button" class="btn btn-danger" onclick="clearCache()">清除缓存</button>
+                            <button type="button" class="btn btn-danger" onclick="backupData()">备份数据</button>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                        <button type="button" class="btn" onclick="previewChanges()">预览更改</button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let currentUser = null;
+
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (!data.success) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                currentUser = data.data.user;
+                if (currentUser.role === 'user') {
+                    window.location.href = '/';
+                    return;
+                }
+
+                document.getElementById('userInfo').innerHTML = `
+                    <img src="${currentUser.avatar || '/avatar.png'}" class="user-avatar" alt="avatar">
+                    <span>${currentUser.username} (${currentUser.role === 'super_admin' ? '超级管理员' : '管理员'})</span>
+                `;
+
+                // 超级管理员显示危险区域
+                if (currentUser.role === 'super_admin') {
+                    document.getElementById('dangerZone').style.display = 'block';
+                }
+
+                loadSettings();
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    const settings = data.data;
+                    
+                    document.getElementById('siteTitle').value = settings.siteTitle || 'Nwely（陌筏）の 博客';
+                    document.getElementById('siteDescription').value = settings.siteDescription || '';
+                    document.getElementById('footerText').value = settings.footerText || '© {year} Nwely的博客. All rights reserved.';
+                    
+                    document.getElementById('headerImageUrl').value = settings.headerImage || '/avatar.png';
+                    document.getElementById('backgroundImageUrl').value = settings.backgroundImage || '';
+                    
+                    // 更新预览图
+                    updateImagePreview('headerPreview', settings.headerImage || '/avatar.png');
+                    if (settings.backgroundImage) {
+                        updateImagePreview('backgroundPreview', settings.backgroundImage);
+                    }
+                    
+                    document.getElementById('primaryColor').value = settings.primaryColor || '#667eea';
+                    document.getElementById('secondaryColor').value = settings.secondaryColor || '#764ba2';
+                    
+                    document.getElementById('postsPerPage').value = settings.postsPerPage || 10;
+                    document.getElementById('allowComments').checked = settings.enableComments !== false;
+                    document.getElementById('commentModeration').checked = settings.commentModeration !== false;
+                    
+                    document.getElementById('allowRegistration').checked = settings.allowRegistration !== false;
+                    document.getElementById('requireEmailVerification').checked = settings.requireEmailVerification || false;
+                    document.getElementById('defaultUserRole').value = settings.defaultUserRole || 'user';
+                    
+                    document.getElementById('maintenanceMode').checked = settings.maintenanceMode || false;
+                }
+            } catch (error) {
+                console.error('加载设置失败:', error);
+            }
+        }
+
+        function updateImagePreview(containerId, imageUrl) {
+            const container = document.getElementById(containerId);
+            if (imageUrl) {
+                container.innerHTML = `<img src="${imageUrl}" alt="Preview" style="max-width: 100%; max-height: 200px;">`;
+            } else {
+                container.innerHTML = `<div style="width: 100%; height: 100px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999;">暂无图片</div>`;
+            }
+        }
+
+        document.getElementById('headerImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    updateImagePreview('headerPreview', e.target.result);
+                    document.getElementById('headerImageUrl').value = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('backgroundImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    updateImagePreview('backgroundPreview', e.target.result);
+                    document.getElementById('backgroundImageUrl').value = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        async function saveSettings() {
+            const settings = {
+                siteTitle: document.getElementById('siteTitle').value,
+                siteDescription: document.getElementById('siteDescription').value,
+                footerText: document.getElementById('footerText').value,
+                headerImage: document.getElementById('headerImageUrl').value,
+                backgroundImage: document.getElementById('backgroundImageUrl').value,
+                primaryColor: document.getElementById('primaryColor').value,
+                secondaryColor: document.getElementById('secondaryColor').value,
+                postsPerPage: parseInt(document.getElementById('postsPerPage').value),
+                enableComments: document.getElementById('allowComments').checked,
+                commentModeration: document.getElementById('commentModeration').checked,
+                allowRegistration: document.getElementById('allowRegistration').checked,
+                requireEmailVerification: document.getElementById('requireEmailVerification').checked,
+                defaultUserRole: document.getElementById('defaultUserRole').value,
+                maintenanceMode: document.getElementById('maintenanceMode').checked
+            };
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(settings)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('设置保存成功！');
+                } else {
+                    alert(data.error || '保存失败');
+                }
+            } catch (error) {
+                console.error('保存设置失败:', error);
+                alert('保存失败，请重试');
+            }
+        }
+
+        function previewChanges() {
+            // 在新窗口预览更改
+            const previewWindow = window.open('/?preview=true', '_blank');
+            // 可以通过 postMessage 传递设置
+        }
+
+        async function resetSettings() {
+            if (!confirm('确定要恢复默认设置吗？此操作不可撤销！')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/settings/reset`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('已恢复默认设置');
+                    loadSettings();
+                } else {
+                    alert(data.error || '操作失败');
+                }
+            } catch (error) {
+                console.error('重置设置失败:', error);
+                alert('操作失败，请重试');
+            }
+        }
+
+        async function clearCache() {
+            if (!confirm('确定要清除缓存吗？')) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/clear-cache`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('缓存已清除');
+                } else {
+                    alert(data.error || '操作失败');
+                }
+            } catch (error) {
+                console.error('清除缓存失败:', error);
+                alert('操作失败，请重试');
+            }
+        }
+
+        async function backupData() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/backup`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup-${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+            } catch (error) {
+                console.error('备份失败:', error);
+                alert('备份失败，请重试');
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('token');
+            
+            if (token) {
+                await fetch(`${API_BASE}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+            
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        });
+
+        checkAuth();
+    </script>
+</body>
+</html>

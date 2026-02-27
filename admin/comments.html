@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>评论管理 - Nwely（陌筏）の 博客</title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <style>
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .comment-content {
+            max-width: 400px;
+        }
+        .comment-content p {
+            margin: 5px 0;
+        }
+        .comment-meta {
+            font-size: 12px;
+            color: #666;
+        }
+        .post-title-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .post-title-link:hover {
+            text-decoration: underline;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-pending {
+            background: #fefcbf;
+            color: #744210;
+        }
+        .status-approved {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .status-spam {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="/avatar.png" alt="Nwely" class="sidebar-logo">
+                <h2>管理后台</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html">仪表盘</a>
+                <a href="/admin/posts.html">文章管理</a>
+                <a href="/admin/users.html">用户管理</a>
+                <a href="/admin/comments.html" class="active">评论管理</a>
+                <a href="/admin/settings.html">站点设置</a>
+                <a href="#" id="logoutBtn">退出登录</a>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="admin-header">
+                <h1>评论管理</h1>
+                <div class="user-info" id="userInfo">
+                    <span>加载中...</span>
+                </div>
+            </div>
+
+            <div class="admin-content">
+                <div class="filters">
+                    <select id="statusFilter" class="filter-select" onchange="filterComments()">
+                        <option value="all">全部状态</option>
+                        <option value="pending">待审核</option>
+                        <option value="approved">已通过</option>
+                        <option value="spam">垃圾评论</option>
+                    </select>
+                    <select id="postFilter" class="filter-select" onchange="filterComments()">
+                        <option value="all">所有文章</option>
+                    </select>
+                    <select id="sortFilter" class="filter-select" onchange="filterComments()">
+                        <option value="newest">最新</option>
+                        <option value="oldest">最早</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="batchApprove()" id="batchApproveBtn" style="display: none;">批量通过</button>
+                    <button class="btn btn-danger" onclick="batchDelete()" id="batchDeleteBtn" style="display: none;">批量删除</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="40"><input type="checkbox" id="selectAll" onchange="toggleAll()"></th>
+                                <th>评论内容</th>
+                                <th>作者</th>
+                                <th>所属文章</th>
+                                <th>状态</th>
+                                <th>时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="commentsList">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 40px;">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let currentUser = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        let selectedComments = new Set();
+
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (!data.success) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                currentUser = data.data.user;
+                if (currentUser.role === 'user') {
+                    window.location.href = '/';
+                    return;
+                }
+
+                document.getElementById('userInfo').innerHTML = `
+                    <img src="${currentUser.avatar || '/avatar.png'}" class="user-avatar" alt="avatar">
+                    <span>${currentUser.username} (${currentUser.role === 'super_admin' ? '超级管理员' : '管理员'})</span>
+                `;
+
+                loadPosts();
+                loadComments();
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadPosts() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/posts?limit=100`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    const postFilter = document.getElementById('postFilter');
+                    data.data.posts.forEach(post => {
+                        const option = document.createElement('option');
+                        option.value = post.id;
+                        option.textContent = post.title;
+                        postFilter.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载文章列表失败:', error);
+            }
+        }
+
+        async function loadComments() {
+            const status = document.getElementById('statusFilter').value;
+            const postId = document.getElementById('postFilter').value;
+            const sort = document.getElementById('sortFilter').value;
+            
+            let url = `${API_BASE}/api/admin/comments?page=${currentPage}&limit=20`;
+            if (status !== 'all') url += `&status=${status}`;
+            if (postId !== 'all') url += `&postId=${postId}`;
+            if (sort !== 'newest') url += `&sort=${sort}`;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderComments(data.data.comments);
+                    totalPages = data.data.totalPages;
+                    renderPagination();
+                    
+                    // 显示/隐藏批量操作按钮
+                    const batchApproveBtn = document.getElementById('batchApproveBtn');
+                    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+                    if (status === 'pending') {
+                        batchApproveBtn.style.display = 'inline-block';
+                    } else {
+                        batchApproveBtn.style.display = 'none';
+                    }
+                    if (selectedComments.size > 0) {
+                        batchDeleteBtn.style.display = 'inline-block';
+                    }
+                }
+            } catch (error) {
+                console.error('加载评论失败:', error);
+            }
+        }
+
+        function renderComments(comments) {
+            const tbody = document.getElementById('commentsList');
+            
+            if (comments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">暂无评论</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = comments.map(comment => `
+                <tr>
+                    <td><input type="checkbox" class="comment-checkbox" value="${comment.id}" onchange="updateSelection(this)" ${selectedComments.has(comment.id) ? 'checked' : ''}></td>
+                    <td class="comment-content">
+                        <p>${comment.content}</p>
+                        <div class="comment-meta">IP: ${comment.ip || '未知'} · 浏览器: ${comment.userAgent || '未知'}</div>
+                    </td>
+                    <td>
+                        <strong>${comment.authorName}</strong>
+                        <div class="comment-meta">${comment.authorEmail || ''}</div>
+                    </td>
+                    <td>
+                        <a href="/post.html?id=${comment.postId}" target="_blank" class="post-title-link">
+                            ${comment.postTitle || '查看文章'}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="status-badge status-${comment.status}">${getStatusName(comment.status)}</span>
+                    </td>
+                    <td>${new Date(comment.createdAt).toLocaleString()}</td>
+                    <td class="action-buttons">
+                        ${comment.status === 'pending' ? `
+                            <button class="btn btn-sm btn-success" onclick="updateStatus('${comment.id}', 'approved')">通过</button>
+                        ` : ''}
+                        <button class="btn btn-sm btn-primary" onclick="updateStatus('${comment.id}', 'spam')">垃圾</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteComment('${comment.id}')">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getStatusName(status) {
+            switch(status) {
+                case 'pending': return '待审核';
+                case 'approved': return '已通过';
+                case 'spam': return '垃圾评论';
+                default: return status;
+            }
+        }
+
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            let html = '';
+            
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<span class="page-item ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</span>`;
+            }
+            
+            pagination.innerHTML = html;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            loadComments();
+        }
+
+        function filterComments() {
+            currentPage = 1;
+            selectedComments.clear();
+            document.getElementById('selectAll').checked = false;
+            loadComments();
+        }
+
+        function toggleAll() {
+            const checkboxes = document.querySelectorAll('.comment-checkbox');
+            const selectAll = document.getElementById('selectAll');
+            
+            checkboxes.forEach(cb => {
+                cb.checked = selectAll.checked;
+                if (selectAll.checked) {
+                    selectedComments.add(cb.value);
+                } else {
+                    selectedComments.delete(cb.value);
+                }
+            });
+            
+            updateSelectionUI();
+        }
+
+        function updateSelection(checkbox) {
+            if (checkbox.checked) {
+                selectedComments.add(checkbox.value);
+            } else {
+                selectedComments.delete(checkbox.value);
+                document.getElementById('selectAll').checked = false;
+            }
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            if (selectedComments.size > 0) {
+                batchDeleteBtn.style.display = 'inline-block';
+                batchDeleteBtn.textContent = `批量删除 (${selectedComments.size})`;
+            } else {
+                batchDeleteBtn.style.display = 'none';
+            }
+        }
+
+        async function updateStatus(commentId, status) {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/comments/${commentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadComments();
+                } else {
+                    alert(data.error || '操作失败');
+                }
+            } catch (error) {
+                console.error('更新评论状态失败:', error);
+                alert('操作失败，请重试');
+            }
+        }
+
+        async function deleteComment(commentId) {
+            if (!confirm('确定要删除这条评论吗？')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/comments/${commentId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    selectedComments.delete(commentId);
+                    loadComments();
+                } else {
+                    alert(data.error || '删除失败');
+                }
+            } catch (error) {
+                console.error('删除评论失败:', error);
+                alert('删除失败，请重试');
+            }
+        }
+
+        async function batchApprove() {
+            if (selectedComments.size === 0) return;
+            if (!confirm(`确定要通过选中的 ${selectedComments.size} 条评论吗？`)) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const promises = Array.from(selectedComments).map(id => 
+                    fetch(`${API_BASE}/api/admin/comments/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ status: 'approved' })
+                    })
+                );
+                
+                await Promise.all(promises);
+                selectedComments.clear();
+                document.getElementById('selectAll').checked = false;
+                loadComments();
+            } catch (error) {
+                console.error('批量通过失败:', error);
+                alert('操作失败，请重试');
+            }
+        }
+
+        async function batchDelete() {
+            if (selectedComments.size === 0) return;
+            if (!confirm(`确定要删除选中的 ${selectedComments.size} 条评论吗？`)) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const promises = Array.from(selectedComments).map(id => 
+                    fetch(`${API_BASE}/api/admin/comments/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                );
+                
+                await Promise.all(promises);
+                selectedComments.clear();
+                document.getElementById('selectAll').checked = false;
+                loadComments();
+            } catch (error) {
+                console.error('批量删除失败:', error);
+                alert('操作失败，请重试');
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('token');
+            
+            if (token) {
+                await fetch(`${API_BASE}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+            
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        });
+
+        checkAuth();
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+name = "nwlblog"
+main = "worker/index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "BLOG_KV"
+id = "REPLACE_WITH_YOUR_KV_ID"
+preview_id = "REPLACE_WITH_YOUR_PREVIEW_KV_ID"
+
+[vars]
+ENVIRONMENT = "production"
+RESEND_API_KEY = "re_PrsUWTuF_H7x54o3urdiCqHQ9x8vAtpaC"
+GITHUB_CLIENT_ID = "REPLACE_WITH_YOUR_GITHUB_CLIENT_ID"
+GITHUB_CLIENT_SECRET = "REPLACE_WITH_YOUR_GITHUB_CLIENT_SECRET"
+SITE_URL = "https://your-domain.pages.dev"
+FROM_EMAIL = "no-reply@nwely.top"
+
+[triggers]
+crons = ["0 0 * * *"]

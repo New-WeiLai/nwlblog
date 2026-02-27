@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - Nwely（陌筏）の 博客</title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <style>
+        .role-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .role-super_admin {
+            background: #805ad5;
+            color: white;
+        }
+        .role-admin {
+            background: #4299e1;
+            color: white;
+        }
+        .role-user {
+            background: #48bb78;
+            color: white;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-active {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .status-inactive {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        .user-avatar-small {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .user-stats {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="/avatar.png" alt="Nwely" class="sidebar-logo">
+                <h2>管理后台</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html">仪表盘</a>
+                <a href="/admin/posts.html">文章管理</a>
+                <a href="/admin/users.html" class="active">用户管理</a>
+                <a href="/admin/comments.html">评论管理</a>
+                <a href="/admin/settings.html">站点设置</a>
+                <a href="#" id="logoutBtn">退出登录</a>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="admin-header">
+                <h1>用户管理</h1>
+                <div class="user-info" id="userInfo">
+                    <span>加载中...</span>
+                </div>
+            </div>
+
+            <div class="admin-content">
+                <div class="filters" style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="search-box" style="flex: 1; min-width: 250px;">
+                        <input type="text" id="searchInput" placeholder="搜索用户名、邮箱..." style="width: 100%; padding: 10px; border: 2px solid #e1e1e1; border-radius: 6px;" onkeyup="searchUsers()">
+                    </div>
+                    <select id="roleFilter" style="padding: 10px; border: 2px solid #e1e1e1; border-radius: 6px; min-width: 150px;" onchange="filterUsers()">
+                        <option value="all">所有角色</option>
+                        <option value="super_admin">超级管理员</option>
+                        <option value="admin">管理员</option>
+                        <option value="user">普通用户</option>
+                    </select>
+                    <select id="statusFilter" style="padding: 10px; border: 2px solid #e1e1e1; border-radius: 6px; min-width: 150px;" onchange="filterUsers()">
+                        <option value="all">所有状态</option>
+                        <option value="active">已激活</option>
+                        <option value="inactive">已禁用</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>用户</th>
+                                <th>邮箱</th>
+                                <th>角色</th>
+                                <th>状态</th>
+                                <th>注册时间</th>
+                                <th>最后登录</th>
+                                <th>统计</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersList">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 40px;">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 编辑用户模态框 -->
+    <div class="modal" id="editUserModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>编辑用户</h2>
+                <span class="modal-close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="editUserForm">
+                <div class="form-group">
+                    <label for="editUsername">用户名</label>
+                    <input type="text" id="editUsername" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editEmail">邮箱</label>
+                    <input type="email" id="editEmail" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editBio">个人简介</label>
+                    <textarea id="editBio" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editRole">角色</label>
+                    <select id="editRole" class="form-control" id="editRoleSelect">
+                        <option value="user">普通用户</option>
+                        <option value="admin">管理员</option>
+                        <option value="super_admin">超级管理员</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editStatus">状态</label>
+                    <select id="editStatus" class="form-control">
+                        <option value="true">已激活</option>
+                        <option value="false">已禁用</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-primary" onclick="saveUser()">保存</button>
+                    <button type="button" class="btn" onclick="closeEditModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let currentUser = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        let editingUserId = null;
+
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (!data.success) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                currentUser = data.data.user;
+                if (currentUser.role === 'user') {
+                    window.location.href = '/';
+                    return;
+                }
+
+                document.getElementById('userInfo').innerHTML = `
+                    <img src="${currentUser.avatar || '/avatar.png'}" class="user-avatar" alt="avatar">
+                    <span>${currentUser.username} (${currentUser.role === 'super_admin' ? '超级管理员' : '管理员'})</span>
+                `;
+
+                loadUsers();
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadUsers() {
+            const search = document.getElementById('searchInput').value;
+            const role = document.getElementById('roleFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            
+            let url = `${API_BASE}/api/admin/users?page=${currentPage}&limit=20`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            if (role !== 'all') url += `&role=${role}`;
+            if (status !== 'all') url += `&status=${status === 'active'}`;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderUsers(data.data.users);
+                    totalPages = data.data.totalPages;
+                    renderPagination();
+                }
+            } catch (error) {
+                console.error('加载用户失败:', error);
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('usersList');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">暂无用户</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <img src="${user.avatar || '/avatar.png'}" class="user-avatar-small" alt="avatar">
+                            <strong>${user.username}</strong>
+                        </div>
+                    </td>
+                    <td>${user.email}</td>
+                    <td><span class="role-badge role-${user.role}">${getRoleName(user.role)}</span></td>
+                    <td><span class="status-badge status-${user.isActive ? 'active' : 'inactive'}">${user.isActive ? '已激活' : '已禁用'}</span></td>
+                    <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td>${user.lastLogin ? new Date(user.lastLogin).toLocaleString() : '-'}</td>
+                    <td class="user-stats">
+                        文章: ${user.postCount || 0}<br>
+                        评论: ${user.commentCount || 0}
+                    </td>
+                    <td class="action-buttons">
+                        ${currentUser.role === 'super_admin' || currentUser.id === user.id ? `
+                            <button class="btn btn-sm btn-primary" onclick="editUser('${user.id}')">编辑</button>
+                        ` : ''}
+                        ${currentUser.role === 'super_admin' && user.id !== currentUser.id ? `
+                            <button class="btn btn-sm ${user.isActive ? 'btn-warning' : 'btn-success'}" onclick="toggleStatus('${user.id}', ${!user.isActive})">
+                                ${user.isActive ? '禁用' : '启用'}
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">删除</button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getRoleName(role) {
+            switch(role) {
+                case 'super_admin': return '超级管理员';
+                case 'admin': return '管理员';
+                default: return '普通用户';
+            }
+        }
+
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            let html = '';
+            
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<span class="page-item ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</span>`;
+            }
+            
+            pagination.innerHTML = html;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            loadUsers();
+        }
+
+        function filterUsers() {
+            currentPage = 1;
+            loadUsers();
+        }
+
+        function searchUsers() {
+            clearTimeout(window.searchTimeout);
+            window.searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                loadUsers();
+            }, 500);
+        }
+
+        function editUser(id) {
+            editingUserId = id;
+            
+            fetch(`${API_BASE}/api/admin/users/${id}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const user = data.data;
+                    document.getElementById('editUsername').value = user.username;
+                    document.getElementById('editEmail').value = user.email;
+                    document.getElementById('editBio').value = user.bio || '';
+                    document.getElementById('editRole').value = user.role;
+                    document.getElementById('editStatus').value = user.isActive.toString();
+                    
+                    // 超级管理员才能修改角色
+                    document.getElementById('editRole').disabled = currentUser.role !== 'super_admin';
+                    
+                    document.getElementById('editUserModal').classList.add('show');
+                }
+            });
+        }
+
+        function closeEditModal() {
+            document.getElementById('editUserModal').classList.remove('show');
+            editingUserId = null;
+        }
+
+        async function saveUser() {
+            const username = document.getElementById('editUsername').value;
+            const email = document.getElementById('editEmail').value;
+            const bio = document.getElementById('editBio').value;
+            const role = document.getElementById('editRole').value;
+            const isActive = document.getElementById('editStatus').value === 'true';
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/users/${editingUserId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ username, email, bio, role, isActive })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeEditModal();
+                    loadUsers();
+                } else {
+                    alert(data.error || '保存失败');
+                }
+            } catch (error) {
+                console.error('保存用户失败:', error);
+                alert('保存失败，请重试');
+            }
+        }
+
+        async function toggleStatus(id, newStatus) {
+            const action = newStatus ? '启用' : '禁用';
+            if (!confirm(`确定要${action}该用户吗？`)) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/users/${id}/toggle-status`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadUsers();
+                } else {
+                    alert(data.error || '操作失败');
+                }
+            } catch (error) {
+                console.error('修改状态失败:', error);
+                alert('操作失败，请重试');
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('确定要删除该用户吗？此操作不可恢复！')) return;
+            if (id === currentUser.id) {
+                alert('不能删除自己的账号');
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/admin/users/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadUsers();
+                } else {
+                    alert(data.error || '删除失败');
+                }
+            } catch (error) {
+                console.error('删除用户失败:', error);
+                alert('删除失败，请重试');
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const token = localStorage.getItem('token');
+            
+            if (token) {
+                await fetch(`${API_BASE}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+            
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        });
+
+        checkAuth();
+    </script>
+</body>
+</html>
