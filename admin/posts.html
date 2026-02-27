@@ -266,7 +266,9 @@
     </div>
 
     <script>
-        const API_BASE = 'https://worker.blog.nwely.top';
+        // 请务必修改为你的 Worker 地址
+        const API_BASE = 'https://worker.blog.nwely.top'; // 例如 https://nwlblog.你的用户名.workers.dev
+
         let currentUser = null;
         let currentPage = 1;
         let totalPages = 1;
@@ -357,9 +359,13 @@
                     renderPosts(data.data.posts);
                     totalPages = data.data.totalPages;
                     renderPagination();
+                } else {
+                    console.error('加载文章失败:', data.error);
+                    document.getElementById('postsList').innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px;">加载失败：${data.error}</td></tr>`;
                 }
             } catch (error) {
                 console.error('加载文章失败:', error);
+                document.getElementById('postsList').innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">网络错误，请重试</td></tr>';
             }
         }
 
@@ -518,10 +524,12 @@
                     tags = data.data.tags || [];
                     renderTags();
                     document.getElementById('editorModal').classList.add('show');
+                } else {
+                    alert('加载文章失败：' + (data.error || '未知错误'));
                 }
             } catch (error) {
                 console.error('加载文章失败:', error);
-                alert('加载文章失败');
+                alert('加载文章失败，请重试');
             }
         }
 
@@ -535,7 +543,6 @@
                 alert('请输入标题');
                 return;
             }
-
             if (!content) {
                 alert('请输入内容');
                 return;
@@ -552,9 +559,7 @@
 
             try {
                 const token = localStorage.getItem('token');
-                const url = currentPostId 
-                    ? `${API_BASE}/api/posts/${currentPostId}`
-                    : `${API_BASE}/api/posts`;
+                const url = currentPostId ? `${API_BASE}/api/posts/${currentPostId}` : `${API_BASE}/api/posts`;
                 const method = currentPostId ? 'PUT' : 'POST';
 
                 const response = await fetch(url, {
@@ -567,12 +572,13 @@
                 });
 
                 const data = await response.json();
-                
+
                 if (data.success) {
+                    alert('文章保存成功！');
                     closeEditor();
-                    loadPosts();
+                    loadPosts(); // 刷新文章列表
                 } else {
-                    alert(data.error || '保存失败');
+                    alert('保存失败：' + (data.error || '未知错误'));
                 }
             } catch (error) {
                 console.error('保存文章失败:', error);
@@ -594,7 +600,7 @@
                 if (data.success) {
                     loadPosts();
                 } else {
-                    alert(data.error || '删除失败');
+                    alert('删除失败：' + (data.error || '未知错误'));
                 }
             } catch (error) {
                 console.error('删除文章失败:', error);

@@ -159,9 +159,7 @@ router.get('/api/auth/me', async (request, env) => {
     }
 });
 
-// ==================== 你之前的路由（文章、用户、评论、设置、统计）放在这里 ====================
-// 将你提供的路由代码块粘贴在此处，确保所有路由都定义在 router 上
-// 文章相关路由
+// ==================== 文章路由（公开） ====================
 router.get('/api/posts', async (request, env) => {
     try {
         const url = new URL(request.url);
@@ -169,8 +167,7 @@ router.get('/api/posts', async (request, env) => {
         const limit = parseInt(url.searchParams.get('limit') || '10');
         
         const postsAPI = new PostsAPI(env);
-        const result = await postsAPI.getPosts(page, limit);
-        
+        const result = await postsAPI.getPosts(page, limit, false); // 只返回已发布文章
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -186,7 +183,6 @@ router.get('/api/posts/:id', async (request, env) => {
         const id = request.params.id;
         const postsAPI = new PostsAPI(env);
         const result = await postsAPI.getPost(id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -197,14 +193,13 @@ router.get('/api/posts/:id', async (request, env) => {
     }
 });
 
+// 需要登录的文章操作
 router.post('/api/posts', async (request, env) => {
     try {
         const { user } = await requireAuth(request, env);
         const data = await request.json();
-        
         const postsAPI = new PostsAPI(env);
         const result = await postsAPI.createPost(data, user.id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -220,10 +215,8 @@ router.put('/api/posts/:id', async (request, env) => {
         const { user } = await requireAuth(request, env);
         const id = request.params.id;
         const data = await request.json();
-        
         const postsAPI = new PostsAPI(env);
         const result = await postsAPI.updatePost(id, data, user.id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -238,10 +231,8 @@ router.delete('/api/posts/:id', async (request, env) => {
     try {
         const { user } = await requireAuth(request, env);
         const id = request.params.id;
-        
         const postsAPI = new PostsAPI(env);
         const result = await postsAPI.deletePost(id, user.id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -252,7 +243,27 @@ router.delete('/api/posts/:id', async (request, env) => {
     }
 });
 
-// 用户管理路由（管理员）
+// ==================== 管理员路由 ====================
+// 文章管理（管理员）
+router.get('/api/admin/posts', async (request, env) => {
+    try {
+        const { user } = await requireAdmin(request, env);
+        const url = new URL(request.url);
+        const page = parseInt(url.searchParams.get('page') || '1');
+        const limit = parseInt(url.searchParams.get('limit') || '10');
+        const postsAPI = new PostsAPI(env);
+        const result = await postsAPI.getPosts(page, limit, true); // true 表示包含草稿
+        return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 用户管理（管理员）
 router.get('/api/admin/users', async (request, env) => {
     try {
         const { user } = await requireAdmin(request, env);
@@ -262,7 +273,6 @@ router.get('/api/admin/users', async (request, env) => {
         
         const usersAPI = new UsersAPI(env);
         const result = await usersAPI.getUsers(page, limit);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -281,7 +291,6 @@ router.put('/api/admin/users/:id', async (request, env) => {
         
         const usersAPI = new UsersAPI(env);
         const result = await usersAPI.updateUser(id, data, user.id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -299,7 +308,6 @@ router.delete('/api/admin/users/:id', async (request, env) => {
         
         const usersAPI = new UsersAPI(env);
         const result = await usersAPI.deleteUser(id, user.id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -310,32 +318,18 @@ router.delete('/api/admin/users/:id', async (request, env) => {
     }
 });
 
-// 评论管理路由
-router.get('/api/posts/:postId/comments', async (request, env) => {
+// 评论管理（管理员）
+router.get('/api/admin/comments', async (request, env) => {
     try {
-        const postId = request.params.postId;
-        const commentsAPI = new CommentsAPI(env);
-        const result = await commentsAPI.getPostComments(postId);
-        
-        return new Response(JSON.stringify({ success: true, data: result }), {
-            headers: { 'Content-Type': 'application/json', ...corsHeaders }
-        });
-    } catch (error) {
-        return new Response(JSON.stringify({ success: false, error: error.message }), {
-            status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders }
-        });
-    }
-});
-
-router.post('/api/posts/:postId/comments', async (request, env) => {
-    try {
-        const { user } = await requireAuth(request, env);
-        const postId = request.params.postId;
-        const { content } = await request.json();
+        const { user } = await requireAdmin(request, env);
+        const url = new URL(request.url);
+        const page = parseInt(url.searchParams.get('page') || '1');
+        const limit = parseInt(url.searchParams.get('limit') || '20');
+        const status = url.searchParams.get('status') || 'all';
+        const postId = url.searchParams.get('postId');
         
         const commentsAPI = new CommentsAPI(env);
-        const result = await commentsAPI.createComment({ postId, content }, user.id);
-        
+        const result = await commentsAPI.getComments(page, limit, status, postId);
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -354,7 +348,6 @@ router.put('/api/admin/comments/:id', async (request, env) => {
         
         const commentsAPI = new CommentsAPI(env);
         const result = await commentsAPI.updateCommentStatus(id, status, user.id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -365,18 +358,35 @@ router.put('/api/admin/comments/:id', async (request, env) => {
     }
 });
 
-// 设置路由
-router.get('/api/settings', async (request, env) => {
+router.delete('/api/admin/comments/:id', async (request, env) => {
     try {
-        const settingsAPI = new SettingsAPI(env);
-        const result = await settingsAPI.getPublicSettings();
+        const { user } = await requireAdmin(request, env);
+        const id = request.params.id;
         
+        const commentsAPI = new CommentsAPI(env);
+        const result = await commentsAPI.deleteComment(id, user.id);
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
-            status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 站点设置（管理员）
+router.get('/api/admin/settings', async (request, env) => {
+    try {
+        const { user } = await requireAdmin(request, env);
+        const settingsAPI = new SettingsAPI(env);
+        const result = await settingsAPI.getAllSettings(user.id);
+        return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     }
 });
@@ -385,10 +395,8 @@ router.put('/api/admin/settings', async (request, env) => {
     try {
         const { user } = await requireAdmin(request, env);
         const settings = await request.json();
-        
         const settingsAPI = new SettingsAPI(env);
         const result = await settingsAPI.updateSettings(settings, user.id);
-        
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -399,14 +407,12 @@ router.put('/api/admin/settings', async (request, env) => {
     }
 });
 
-// 统计路由
+// 统计（管理员）
 router.get('/api/admin/stats', async (request, env) => {
     try {
         const { user } = await requireAdmin(request, env);
-        
         const settingsAPI = new SettingsAPI(env);
         const stats = await settingsAPI.getSiteStats();
-        
         return new Response(JSON.stringify({ success: true, data: stats }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -417,7 +423,22 @@ router.get('/api/admin/stats', async (request, env) => {
     }
 });
 
-// ==================== 404 处理 ====================
+// ==================== 公共设置路由（无需登录）====================
+router.get('/api/settings', async (request, env) => {
+    try {
+        const settingsAPI = new SettingsAPI(env);
+        const result = await settingsAPI.getPublicSettings();
+        return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 404 处理
 router.all('*', () => new Response('Not Found', { status: 404 }));
 
 // ==================== 默认导出（事件处理器）====================
