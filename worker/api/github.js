@@ -13,7 +13,8 @@ export class GitHubAuth {
         const params = new URLSearchParams({
             client_id: this.clientId,
             redirect_uri: this.redirectUri,
-            scope: 'user:email',
+            // 关键修改：同时请求读取用户资料和邮箱的权限
+            scope: 'read:user user:email',
             state: state
         });
         return `https://github.com/login/oauth/authorize?${params.toString()}`;
@@ -40,7 +41,6 @@ export class GitHubAuth {
             throw new Error('GitHub 授权服务器连接失败');
         }
 
-        // 检查响应状态和内容类型
         const contentType = response.headers.get('content-type');
         if (!response.ok || !contentType || !contentType.includes('application/json')) {
             const errorText = await response.text();
@@ -48,7 +48,7 @@ export class GitHubAuth {
                 status: response.status,
                 statusText: response.statusText,
                 headers: Object.fromEntries(response.headers),
-                body: errorText.substring(0, 500) // 只记录前500字符
+                body: errorText.substring(0, 500)
             });
             throw new Error(`GitHub 授权失败 (HTTP ${response.status})`);
         }
@@ -98,7 +98,7 @@ export class GitHubAuth {
             throw new Error('GitHub 返回了无效的用户信息格式');
         }
 
-        // 如果没有 email，尝试获取 emails
+        // 如果主要用户信息中没有 email，尝试获取 emails（需要 user:email 权限）
         if (!userData.email) {
             try {
                 const emailsResponse = await fetch('https://api.github.com/user/emails', {
@@ -139,12 +139,14 @@ export class GitHubAuth {
             user = await this.db.getUserByEmail(githubUser.email);
             
             if (user) {
+                // 已有账号，关联 GitHub
                 await this.db.createGitHubUser(githubUser.githubId, user.id);
                 await this.db.updateUser(user.id, {
                     githubId: githubUser.githubId,
                     avatar: user.avatar || githubUser.avatar
                 });
             } else {
+                // 创建新用户
                 const randomPassword = crypto.randomUUID() + Math.random();
                 const hashedPassword = await bcrypt.hash(randomPassword, 10);
                 
