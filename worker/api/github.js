@@ -5,7 +5,7 @@ export class GitHubAuth {
     constructor(env) {
         this.clientId = env.GITHUB_CLIENT_ID;
         this.clientSecret = env.GITHUB_CLIENT_SECRET;
-        this.redirectUri = `${env.SITE_URL}/api/auth/github/callback`;
+        this.redirectUri = `${env.WORKER_URL}/api/auth/github/callback`;
         this.db = new Database(env.BLOG_KV);
     }
 
