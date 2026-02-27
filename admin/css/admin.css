@@ -36,6 +36,7 @@ body {
     border-radius: 50%;
     border: 3px solid white;
     margin-bottom: 15px;
+    object-fit: cover; /* 防止变形 */
 }
 
 .sidebar-header h2 {
@@ -94,6 +95,7 @@ body {
     height: 40px;
     border-radius: 50%;
     border: 2px solid #667eea;
+    object-fit: cover; /* 防止变形 */
 }
 
 /* 表格样式 */
@@ -308,9 +310,5 @@ tr:hover {
     
     .admin-container {
         flex-direction: column;
-    }
-    
-    .stats-grid {
-        grid-template-columns: 1fr;
     }
 }
