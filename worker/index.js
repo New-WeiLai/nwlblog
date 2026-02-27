@@ -1,9 +1,12 @@
 // 在文件顶部添加导入
+import { Router } from 'itty-router';  // 必须放在最前面
 import { PostsAPI } from './api/posts.js';
 import { UsersAPI } from './api/users.js';
 import { CommentsAPI } from './api/comments.js';
 import { SettingsAPI } from './api/settings.js';
 import { requireAuth, requireAdmin, requireSuperAdmin } from './middleware/auth.js';
+
+const router = Router();
 
 // 文章相关路由
 router.get('/api/posts', async (request, env) => {
