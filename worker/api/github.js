@@ -20,39 +20,100 @@ export class GitHubAuth {
     }
 
     async getAccessToken(code) {
-        const response = await fetch('https://github.com/login/oauth/access_token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                client_id: this.clientId,
-                client_secret: this.clientSecret,
-                code: code,
-                redirect_uri: this.redirectUri
-            })
-        });
+        let response;
+        try {
+            response = await fetch('https://github.com/login/oauth/access_token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    client_id: this.clientId,
+                    client_secret: this.clientSecret,
+                    code: code,
+                    redirect_uri: this.redirectUri
+                })
+            });
+        } catch (fetchError) {
+            console.error('GitHub token 请求网络错误:', fetchError);
+            throw new Error('GitHub 授权服务器连接失败');
+        }
 
-        const data = await response.json();
-        if (data.error) throw new Error(data.error_description || 'GitHub认证失败');
+        // 检查响应状态和内容类型
+        const contentType = response.headers.get('content-type');
+        if (!response.ok || !contentType || !contentType.includes('application/json')) {
+            const errorText = await response.text();
+            console.error('GitHub token 响应异常:', {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers),
+                body: errorText.substring(0, 500) // 只记录前500字符
+            });
+            throw new Error(`GitHub 授权失败 (HTTP ${response.status})`);
+        }
+
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            console.error('解析 GitHub token 响应 JSON 失败:', jsonError);
+            throw new Error('GitHub 返回了无效的响应格式');
+        }
+
+        if (data.error) {
+            console.error('GitHub token 错误:', data);
+            throw new Error(data.error_description || data.error || 'GitHub 认证失败');
+        }
+
         return data.access_token;
     }
 
     async getUserInfo(accessToken) {
-        const response = await fetch('https://api.github.com/user', {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-        
-        const userData = await response.json();
-        
-        if (!userData.email) {
-            const emailsResponse = await fetch('https://api.github.com/user/emails', {
+        let response;
+        try {
+            response = await fetch('https://api.github.com/user', {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             });
-            const emails = await emailsResponse.json();
-            const primaryEmail = emails.find(email => email.primary && email.verified);
-            userData.email = primaryEmail ? primaryEmail.email : null;
+        } catch (fetchError) {
+            console.error('GitHub 用户信息请求网络错误:', fetchError);
+            throw new Error('获取 GitHub 用户信息失败');
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!response.ok || !contentType || !contentType.includes('application/json')) {
+            const errorText = await response.text();
+            console.error('GitHub 用户信息响应异常:', {
+                status: response.status,
+                body: errorText.substring(0, 500)
+            });
+            throw new Error(`获取 GitHub 用户信息失败 (HTTP ${response.status})`);
+        }
+
+        let userData;
+        try {
+            userData = await response.json();
+        } catch (jsonError) {
+            console.error('解析 GitHub 用户信息 JSON 失败:', jsonError);
+            throw new Error('GitHub 返回了无效的用户信息格式');
+        }
+
+        // 如果没有 email，尝试获取 emails
+        if (!userData.email) {
+            try {
+                const emailsResponse = await fetch('https://api.github.com/user/emails', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                if (emailsResponse.ok) {
+                    const emails = await emailsResponse.json();
+                    const primaryEmail = emails.find(email => email.primary && email.verified);
+                    userData.email = primaryEmail ? primaryEmail.email : null;
+                } else {
+                    console.error('获取用户 emails 失败:', emailsResponse.status);
+                }
+            } catch (emailError) {
+                console.error('获取用户 emails 异常:', emailError);
+            }
         }
 
         return {
