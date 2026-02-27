@@ -9,16 +9,16 @@ export class GitHubAuth {
         this.db = new Database(env.BLOG_KV);
     }
 
-    getAuthorizationUrl(state) {
-        const params = new URLSearchParams({
-            client_id: this.clientId,
-            redirect_uri: this.redirectUri,
-            // 关键修改：同时请求读取用户资料和邮箱的权限
-            scope: 'read:user user:email',
-            state: state
-        });
-        return `https://github.com/login/oauth/authorize?${params.toString()}`;
-    }
+// 在 getAuthorizationUrl 方法中，将 scope 改为 'user'
+getAuthorizationUrl(state) {
+    const params = new URLSearchParams({
+        client_id: this.clientId,
+        redirect_uri: this.redirectUri,
+        scope: 'user',  // 请求所有用户信息权限
+        state: state
+    });
+    return `https://github.com/login/oauth/authorize?${params.toString()}`;
+}
 
     async getAccessToken(code) {
         let response;
