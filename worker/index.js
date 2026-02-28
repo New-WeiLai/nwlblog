@@ -678,10 +678,86 @@ router.get('/rss.xml', async (request, env) => {
     }
 });
 
-// 简单的 XML 转义函数（防止特殊字符破坏 XML）
+// ==================== RSS 订阅源 ====================
+// 简单的 Markdown 转纯文本函数
+function stripMarkdown(md) {
+    if (!md) return '';
+    let text = md
+        // 移除标题标记（如 #, ##）
+        .replace(/^#+\s*/gm, '')
+        // 移除粗体 **text** 和 __text__
+        .replace(/(\*\*|__)(.*?)\1/g, '$2')
+        // 移除斜体 *text* 和 _text_
+        .replace(/(\*|_)(.*?)\1/g, '$2')
+        // 移除链接，保留文字 [text](url)
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+        // 移除图片，保留 alt 文字 ![alt](url)
+        .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '$1')
+        // 移除代码块 ```code```
+        .replace(/```[\s\S]*?```/g, '')
+        // 移除行内代码 `code`
+        .replace(/`([^`]+)`/g, '$1')
+        // 将连续三个以上换行缩减为两个
+        .replace(/\n{3,}/g, '\n\n');
+    return text.trim();
+}
+
+router.get('/rss.xml', async (request, env) => {
+    try {
+        const postsAPI = new PostsAPI(env);
+        const settingsAPI = new SettingsAPI(env);
+
+        const settings = await settingsAPI.getPublicSettings();
+        const siteTitle = settings.siteTitle || 'Nwely（陌筏）の 博客';
+        const siteDescription = settings.siteDescription || '一个简洁美观的个人博客';
+        const siteUrl = env.SITE_URL; // 例如 https://blog.nwely.top
+
+        // 获取最近 20 篇已发布的文章
+        const result = await postsAPI.getPosts(1, 20, false);
+        const posts = result.posts;
+
+        // 构建 RSS XML
+        const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>${escapeXml(siteTitle)}</title>
+        <link>${siteUrl}</link>
+        <description>${escapeXml(siteDescription)}</description>
+        <language>zh-cn</language>
+        <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
+        <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+        ${posts.map(post => {
+            // 将 Markdown 转换为纯文本并截取前 500 字作为摘要
+            const plainText = stripMarkdown(post.content);
+            const summary = plainText.length > 500 ? plainText.substring(0, 500) + '…' : plainText;
+            return `
+        <item>
+            <title>${escapeXml(post.title)}</title>
+            <link>${siteUrl}/post.html?id=${post.id}</link>
+            <guid isPermaLink="false">${siteUrl}/post.html?id=${post.id}</guid>
+            <pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate>
+            <description><![CDATA[${escapeXml(summary)}]]></description>
+        </item>`;
+        }).join('')}
+    </channel>
+</rss>`;
+
+        return new Response(rss, {
+            headers: {
+                'Content-Type': 'application/rss+xml; charset=utf-8',
+                'Cache-Control': 'max-age=3600',
+            }
+        });
+    } catch (error) {
+        console.error('生成 RSS 失败:', error);
+        return new Response('生成 RSS 失败', { status: 500 });
+    }
+});
+
+// 简单的 XML 转义函数（用于标题等）
 function escapeXml(unsafe) {
     if (!unsafe) return '';
-    return unsafe.replace(/[<>&'"]/g, function (c) {
+    return unsafe.replace(/[<>&'"]/g, (c) => {
         switch (c) {
             case '<': return '&lt;';
             case '>': return '&gt;';
@@ -692,7 +768,6 @@ function escapeXml(unsafe) {
         }
     });
 }
-
 // 404 处理
 router.all('*', () => new Response('Not Found', { status: 404 }));
 
