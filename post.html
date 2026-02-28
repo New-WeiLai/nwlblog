@@ -5,49 +5,210 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文章详情 - Nwely（陌筏）の 博客</title>
     <link rel="stylesheet" href="/css/style.css">
-    <!-- 引入 marked 库，使用固定版本 -->
-    <script src="https://cdn.jsdelivr.net/npm/marked@4.0.2/marked.min.js"></script>
+    <!-- 改用 showdown 库，它更稳定地支持标准 Markdown -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <style>
-        /* 完全保留你原有的样式，这里省略以节省篇幅，但请保留你原有的全部样式 */
-        .post-container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .post-header { margin-bottom: 30px; }
-        .post-title { font-size: 36px; color: #333; margin-bottom: 15px; }
-        .post-meta { font-size: 14px; color: #666; display: flex; gap: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        .post-content { font-size: 18px; line-height: 1.8; color: #444; margin-bottom: 40px; }
-        /* Markdown 渲染样式 */
-        .post-content h1, .post-content h2, .post-content h3, .post-content h4, .post-content h5, .post-content h6 {
-            margin: 1.5em 0 0.5em; color: #333; font-weight: 600;
+        .post-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .post-content p { margin-bottom: 1em; }
-        .post-content code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 4px; font-family: monospace; }
-        .post-content pre { background: #f4f4f4; padding: 1em; border-radius: 8px; overflow-x: auto; }
-        .post-content pre code { background: none; padding: 0; }
-        .post-content blockquote { border-left: 4px solid #667eea; padding-left: 1em; color: #666; margin: 1em 0; font-style: italic; }
-        .post-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
-        .post-content ul, .post-content ol { margin: 1em 0; padding-left: 2em; }
-        .post-content table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-        .post-content th, .post-content td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .post-content th { background: #f8f9fa; }
-        .comments-section { border-top: 2px solid #eee; padding-top: 30px; }
-        .comments-section h3 { font-size: 24px; margin-bottom: 20px; }
-        .comment { background: #f9f9f9; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        .comment-meta { font-size: 14px; color: #666; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        .comment-author { font-weight: 600; color: #667eea; }
-        .comment-content { color: #444; line-height: 1.6; }
-        .comment-form { margin-top: 30px; }
-        .comment-form textarea { width: 100%; padding: 15px; border: 2px solid #e1e1e1; border-radius: 8px; font-size: 16px; margin-bottom: 15px; resize: vertical; }
-        .comment-form button { background: #667eea; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.3s; }
-        .comment-form button:hover { background: #5a67d8; }
-        .comment-form button:disabled { opacity: 0.6; cursor: not-allowed; }
-        .login-to-comment { text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; margin-top: 20px; }
-        .login-to-comment a { color: #667eea; text-decoration: none; font-weight: 600; }
-        .login-to-comment a:hover { text-decoration: underline; }
-        .loading { text-align: center; padding: 40px; color: #999; }
-        .error { text-align: center; padding: 40px; color: #e53e3e; }
-        .user-info { display: inline-flex; align-items: center; gap: 10px; margin-left: 30px; color: white; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
-        .nav a { color: white; text-decoration: none; margin-left: 30px; font-weight: 500; transition: opacity 0.3s; }
-        .nav a:hover { opacity: 0.8; }
+        .post-header {
+            margin-bottom: 30px;
+        }
+        .post-title {
+            font-size: 36px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .post-meta {
+            font-size: 14px;
+            color: #666;
+            display: flex;
+            gap: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        .post-content {
+            font-size: 18px;
+            line-height: 1.8;
+            color: #444;
+            margin-bottom: 40px;
+        }
+        /* Markdown 渲染样式 */
+        .post-content h1,
+        .post-content h2,
+        .post-content h3,
+        .post-content h4,
+        .post-content h5,
+        .post-content h6 {
+            margin: 1.5em 0 0.5em;
+            color: #333;
+            font-weight: 600;
+        }
+        .post-content p {
+            margin-bottom: 1em;
+        }
+        .post-content code {
+            background: #f4f4f4;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 0.9em;
+        }
+        .post-content pre {
+            background: #f4f4f4;
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+        .post-content pre code {
+            background: none;
+            padding: 0;
+        }
+        .post-content blockquote {
+            border-left: 4px solid #667eea;
+            padding-left: 1em;
+            color: #666;
+            margin: 1em 0;
+            font-style: italic;
+        }
+        .post-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 1em 0;
+        }
+        .post-content ul,
+        .post-content ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+        }
+        .post-content th,
+        .post-content td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .post-content th {
+            background: #f8f9fa;
+        }
+        .comments-section {
+            border-top: 2px solid #eee;
+            padding-top: 30px;
+        }
+        .comments-section h3 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .comment {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .comment-meta {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .comment-author {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .comment-content {
+            color: #444;
+            line-height: 1.6;
+        }
+        .comment-form {
+            margin-top: 30px;
+        }
+        .comment-form textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            resize: vertical;
+        }
+        .comment-form button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .comment-form button:hover {
+            background: #5a67d8;
+        }
+        .comment-form button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .login-to-comment {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .login-to-comment a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .login-to-comment a:hover {
+            text-decoration: underline;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e53e3e;
+        }
+        .user-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 30px;
+            color: white;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+            object-fit: cover;
+        }
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 30px;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        .nav a:hover {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -82,18 +243,28 @@
         // 请务必修改为你的 Worker 地址
         const API_BASE = 'https://worker.blog.nwely.top';
 
-        // 检查 marked 版本
-        console.log('marked version:', marked.version);
+        // 创建 showdown 转换器，启用常用选项
+        const converter = new showdown.Converter({
+            simplifiedAutoLink: true,
+            excludeTrailingPunctuationFromURLs: true,
+            strikethrough: true,
+            tables: true,
+            tasklists: true,
+            openLinksInNewWindow: true,
+            emoji: true,
+            ghCodeBlocks: true,
+            ghMentions: true,
+            ghMentionsLink: 'https://github.com/{u}'
+        });
 
-        // 获取文章 ID
+        // 获取文章 ID 从 URL 参数
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id');
 
         let currentUser = null;
 
-        // 加载用户信息（略，与之前相同）
+        // 加载用户信息
         async function loadUser() {
-            // ... 保持不变 ...
             const token = localStorage.getItem('token');
             if (!token) {
                 document.getElementById('authLinks').innerHTML = `
@@ -102,6 +273,7 @@
                 `;
                 return;
             }
+
             try {
                 const response = await fetch(`${API_BASE}/api/auth/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -143,7 +315,7 @@
                 const post = data.data;
                 const comments = post.comments || [];
 
-                // 输出原始内容（用于调试）
+                // 调试：输出原始内容
                 console.log('原始 Markdown:', post.content);
 
                 // 渲染文章
@@ -157,26 +329,17 @@
         function renderPost(post, comments) {
             const container = document.getElementById('postContainer');
             
-            // 使用 marked 解析，传入选项（确保标题识别）
+            // 使用 showdown 解析 Markdown
             let contentHtml;
             try {
-                contentHtml = marked.parse(post.content, {
-                    breaks: true,
-                    gfm: true,
-                    headerIds: false,
-                    mangle: false,
-                    pedantic: false,
-                    sanitize: false,
-                    smartLists: true,
-                    smartypants: false
-                });
+                contentHtml = converter.makeHtml(post.content);
                 console.log('解析后的 HTML:', contentHtml);
             } catch (e) {
-                console.error('marked 解析失败，使用纯文本显示:', e);
+                console.error('showdown 解析失败，使用纯文本显示:', e);
                 contentHtml = `<pre>${escapeHtml(post.content)}</pre>`;
             }
 
-            // 评论部分（与之前相同）
+            // 评论部分
             let commentsHtml = '';
             if (comments.length === 0) {
                 commentsHtml = '<p>暂无评论，来抢沙发吧！</p>';
@@ -231,7 +394,7 @@
             }
         }
 
-        // HTML 转义函数
+        // HTML 转义函数（用于标题、作者等，防止 XSS）
         function escapeHtml(text) {
             if (!text) return '';
             return String(text)
@@ -242,14 +405,16 @@
                 .replace(/'/g, '&#039;');
         }
 
-        // 提交评论（略，保持不变）
+        // 提交评论
         async function submitComment(e) {
             e.preventDefault();
             const content = document.getElementById('commentContent').value.trim();
             if (!content) return;
+
             const btn = document.getElementById('submitCommentBtn');
             btn.disabled = true;
             btn.textContent = '提交中...';
+
             try {
                 const token = localStorage.getItem('token');
                 const response = await fetch(`${API_BASE}/api/posts/${postId}/comments`, {
@@ -260,9 +425,10 @@
                     },
                     body: JSON.stringify({ content })
                 });
+
                 const data = await response.json();
                 if (data.success) {
-                    loadPost();
+                    loadPost(); // 重新加载以显示新评论
                 } else {
                     alert(data.error || '评论失败');
                     btn.disabled = false;
@@ -276,14 +442,15 @@
             }
         }
 
-        // 加载页脚设置
+        // 加载站点设置（用于页脚）
         async function loadSettings() {
             try {
                 const response = await fetch(`${API_BASE}/api/settings`);
                 const data = await response.json();
                 if (data.success) {
                     const year = new Date().getFullYear();
-                    document.getElementById('footerText').textContent = data.data.footerText.replace('{year}', year);
+                    document.getElementById('footerText').textContent = 
+                        data.data.footerText.replace('{year}', year);
                 } else {
                     document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
                 }
@@ -296,7 +463,10 @@
         window.logout = async function() {
             const token = localStorage.getItem('token');
             if (token) {
-                await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                await fetch(`${API_BASE}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
             }
             localStorage.removeItem('token');
             localStorage.removeItem('user');
