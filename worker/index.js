@@ -19,12 +19,12 @@ const router = Router();
 // 处理 OPTIONS 预检请求
 router.options('*', () => {
     return new Response(null, {
-        headers: {
+       /* headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Allow-Credentials': 'true',
-        }
+       */ }
     });
 });
 
@@ -635,6 +635,18 @@ router.all('*', () => new Response('Not Found', { status: 404 }));
 // ==================== 默认导出（事件处理器）====================
 export default {
     async fetch(request, env, ctx) {
+        // 处理所有 OPTIONS 预检请求，直接返回 CORS 头
+        if (request.method === 'OPTIONS') {
+            return new Response(null, {
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                    'Access-Control-Allow-Credentials': 'true',
+                }
+            });
+        }
+
         try {
             return await router.handle(request, env, ctx);
         } catch (error) {
