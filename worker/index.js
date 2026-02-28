@@ -17,7 +17,16 @@ const corsHeaders = {
 const router = Router();
 
 // 处理 OPTIONS 预检请求
-router.options('*', () => new Response(null, { headers: corsHeaders }));
+router.options('*', () => {
+    return new Response(null, {
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Credentials': 'true',
+        }
+    });
+});
 
 // 健康检查
 router.get('/api/health', () => new Response(JSON.stringify({
@@ -291,6 +300,10 @@ router.get('/api/user/posts', async (request, env) => {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     }
+});
+// 为评论路由添加 OPTIONS 预检处理
+router.options('/api/posts/:postId/comments', () => {
+    return new Response(null, { headers: corsHeaders });
 });
 
 // ==================== 管理员路由 ====================
