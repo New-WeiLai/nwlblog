@@ -437,6 +437,134 @@ router.get('/api/settings', async (request, env) => {
         });
     }
 });
+// 导入 OAuth 处理模块
+import { OAuthServer } from './api/oauth.js';
+
+// 客户端注册（仅管理员可调用，需认证）
+router.post('/api/oauth/clients', async (request, env) => {
+    try {
+        const { user } = await requireAdmin(request, env); // 只有管理员能注册第三方应用
+        const { name, redirect_uri } = await request.json();
+        const oauth = new OAuthServer(env);
+        const client = await oauth.registerClient(name, redirect_uri);
+        return new Response(JSON.stringify({ success: true, data: client }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 授权端点
+router.get('/oauth/authorize', async (request, env) => {
+    try {
+        const url = new URL(request.url);
+        const clientId = url.searchParams.get('client_id');
+        const redirectUri = url.searchParams.get('redirect_uri');
+        const responseType = url.searchParams.get('response_type'); // 应为 'code'
+        const scope = url.searchParams.get('scope') || '';
+        const state = url.searchParams.get('state');
+
+        if (responseType !== 'code') {
+            throw new Error('仅支持 authorization_code 模式');
+        }
+
+        const oauth = new OAuthServer(env);
+        // 验证客户端
+        await oauth.validateClient(clientId, redirectUri);
+
+        // 此处应检查用户是否已登录，若未登录则跳转到登录页
+        const authHeader = request.headers.get('Authorization');
+        let user = null;
+        if (authHeader) {
+            const token = authHeader.replace('Bearer ', '');
+            const session = await oauth.db.getSession(token);
+            if (session) user = await oauth.db.getUserById(session.userId);
+        }
+
+        if (!user) {
+            // 保存当前请求参数到 session 或 cookie，登录后跳回
+            const loginUrl = new URL('/login', env.SITE_URL);
+            loginUrl.searchParams.set('redirect', request.url);
+            return Response.redirect(loginUrl.toString(), 302);
+        }
+
+        // 显示授权页面（简化：直接生成 code 并重定向，跳过用户确认）
+        const code = await oauth.generateAuthorizationCode(clientId, user.id, redirectUri, scope);
+        const redirectUrl = new URL(redirectUri);
+        redirectUrl.searchParams.set('code', code);
+        if (state) redirectUrl.searchParams.set('state', state);
+        return Response.redirect(redirectUrl.toString(), 302);
+    } catch (error) {
+        // 错误处理：跳转到 redirect_uri 并携带 error 参数
+        const url = new URL(request.url);
+        const redirectUri = url.searchParams.get('redirect_uri') || env.SITE_URL;
+        const redirectUrl = new URL(redirectUri);
+        redirectUrl.searchParams.set('error', error.message);
+        return Response.redirect(redirectUrl.toString(), 302);
+    }
+});
+
+// 令牌端点
+router.post('/oauth/token', async (request, env) => {
+    try {
+        const formData = await request.formData();
+        const grantType = formData.get('grant_type');
+        const code = formData.get('code');
+        const redirectUri = formData.get('redirect_uri');
+        const clientId = formData.get('client_id');
+        const clientSecret = formData.get('client_secret');
+
+        if (grantType !== 'authorization_code') {
+            throw new Error('不支持的 grant_type');
+        }
+
+        const oauth = new OAuthServer(env);
+        const tokenData = await oauth.exchangeCodeForToken(clientId, clientSecret, code, redirectUri);
+        return new Response(JSON.stringify({
+            access_token: tokenData.token,
+            token_type: 'Bearer',
+            expires_in: tokenData.expires_in,
+            scope: tokenData.scope
+        }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 用户信息端点
+router.get('/oauth/userinfo', async (request, env) => {
+    try {
+        const authHeader = request.headers.get('Authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            throw new Error('缺少访问令牌');
+        }
+        const token = authHeader.substring(7);
+        const oauth = new OAuthServer(env);
+        const user = await oauth.getUserByToken(token);
+        return new Response(JSON.stringify({
+            sub: user.id,
+            name: user.username,
+            email: user.email,
+            picture: user.avatar
+        }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
 
 // 404 处理
 router.all('*', () => new Response('Not Found', { status: 404 }));
