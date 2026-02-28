@@ -11,8 +11,9 @@
     "bcryptjs": "^2.4.3",
     "itty-router": "^4.0.23",
     "uuid": "^9.0.1",
-    "resend": "^2.0.0"
-  },
+    "resend": "^2.0.0",
+    "showdown": "^2.1.0"
+  }
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240208.0",
     "wrangler": "^3.28.0"
