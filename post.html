@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文章详情 - Nwely（陌筏）の 博客</title>
     <link rel="stylesheet" href="/css/style.css">
-    <!-- 引入 marked 库用于 Markdown 渲染 -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- 可选：代码高亮（如果需要） -->
-    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"> -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script> -->
+    <!-- 引入 marked 库用于 Markdown 渲染，固定版本确保稳定 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.0.2/marked.min.js"></script>
     <style>
         .post-container {
             max-width: 800px;
@@ -45,7 +42,9 @@
         .post-content h1,
         .post-content h2,
         .post-content h3,
-        .post-content h4 {
+        .post-content h4,
+        .post-content h5,
+        .post-content h6 {
             margin: 1.5em 0 0.5em;
             color: #333;
             font-weight: 600;
@@ -186,6 +185,32 @@
             padding: 40px;
             color: #e53e3e;
         }
+        /* 用户头像样式已在 style.css 中，但为确保，可以补充 */
+        .user-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 30px;
+            color: white;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+            object-fit: cover;
+        }
+        /* 确保导航链接样式一致 */
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 30px;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        .nav a:hover {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -217,15 +242,19 @@
     </footer>
 
     <script>
-        // 请务必修改为你的 Worker 地址
-        const API_BASE = 'https://worker.blog.nwely.top';
+        // ！！！请务必修改为你的 Worker 地址 ！！！
+        const API_BASE = 'https://worker.blog.nwely.top'; // 例如 https://nwlblog.你的用户名.workers.dev
 
-        // 配置 marked 选项（可选）
+        // 配置 marked 选项，确保正确解析 Markdown，不保留原始标记符号
         marked.setOptions({
-            breaks: true,      // 将换行符转换为 <br>
-            gfm: true,         // 启用 GitHub 风格的 Markdown
-            headerIds: false,  // 不自动生成标题 ID
-            mangle: false      // 不转义 HTML
+            breaks: true,           // 支持换行
+            gfm: true,              // 启用 GitHub 风格 Markdown
+            headerIds: false,       // 不为标题生成 id
+            mangle: false,          // 不转义 HTML
+            pedantic: false,        // 不严格遵循原始规范
+            sanitize: false,        // 不清除 HTML，允许样式
+            smartLists: true,       // 优化列表渲染
+            smartypants: false      // 不自动转换引号
         });
 
         // 获取文章 ID 从 URL 参数
@@ -333,9 +362,9 @@
 
             container.innerHTML = `
                 <div class="post-header">
-                    <h1 class="post-title">${post.title}</h1>
+                    <h1 class="post-title">${escapeHtml(post.title)}</h1>
                     <div class="post-meta">
-                        <span>作者：${post.authorName}</span>
+                        <span>作者：${escapeHtml(post.authorName)}</span>
                         <span>发布于：${new Date(post.publishedAt || post.createdAt).toLocaleDateString()}</span>
                         <span>阅读：${post.views || 0}</span>
                     </div>
@@ -352,13 +381,17 @@
             if (currentUser) {
                 document.getElementById('commentForm').addEventListener('submit', submitComment);
             }
+        }
 
-            // 可选：代码高亮
-            // if (typeof hljs !== 'undefined') {
-            //     document.querySelectorAll('pre code').forEach((block) => {
-            //         hljs.highlightElement(block);
-            //     });
-            // }
+        // 简单的 HTML 转义，用于标题等用户输入内容，防止 XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // 提交评论
@@ -384,7 +417,7 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    // 评论成功，刷新文章以显示新评论
+                    // 评论成功，重新加载文章以显示新评论
                     loadPost();
                 } else {
                     alert(data.error || '评论失败');
