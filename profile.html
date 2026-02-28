@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人设置 - Nwely（陌筏）の 博客</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .profile-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .profile-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .profile-header h2 {
+            color: #333;
+            font-size: 28px;
+        }
+        .avatar-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .avatar-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 3px solid #667eea;
+            object-fit: cover;
+            margin-bottom: 15px;
+        }
+        .avatar-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .avatar-upload input[type="file"] {
+            display: none;
+        }
+        .avatar-upload .upload-btn {
+            background: #667eea;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .avatar-upload .upload-btn:hover {
+            background: #5a67d8;
+        }
+        .avatar-upload .clear-btn {
+            background: #e53e3e;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            border: none;
+        }
+        .avatar-upload .clear-btn:hover {
+            background: #c53030;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: #718096;
+            margin-top: 10px;
+        }
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .message.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .message.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .section-divider {
+            margin: 30px 0 20px;
+            border-top: 2px solid #e1e1e1;
+            text-align: center;
+            position: relative;
+        }
+        .section-divider span {
+            background: white;
+            padding: 0 15px;
+            color: #999;
+            font-size: 16px;
+            position: relative;
+            top: -12px;
+        }
+        .admin-button-container {
+            margin-top: 40px;
+            text-align: center;
+        }
+        .admin-button {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .admin-button:hover {
+            background: #c53030;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="/avatar.png" alt="Nwely">
+                <h1>Nwely（陌筏）の 博客</h1>
+            </div>
+            <nav class="nav" id="nav">
+                <a href="/">首页</a>
+                <a href="/posts">文章</a>
+                <a href="/about">关于</a>
+                <span id="authLinks"></span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container profile-container" id="profileContainer">
+            <!-- 内容由 JS 动态填充 -->
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p id="footerText"></p>
+        </div>
+    </footer>
+
+    <script>
+        const API_BASE = 'https://worker.blog.nwely.top'; // 请替换为你的 Worker 地址
+        let currentUser = null;
+
+        // 检查登录状态
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.data.user;
+                    renderProfileForm();
+                    updateNav();
+                } else {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('加载用户失败:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // 更新导航栏
+        function updateNav() {
+            const authLinks = document.getElementById('authLinks');
+            authLinks.innerHTML = `
+                <div class="user-info">
+                    <img src="${currentUser.avatar || '/avatar.png'}" class="user-avatar" alt="avatar">
+                    <span>${currentUser.username}</span>
+                    <a href="/my-posts.html">我的文章</a>
+                    <a href="/profile.html">个人设置</a>
+                    <a href="#" onclick="logout()">登出</a>
+                </div>
+            `;
+        }
+
+        // 渲染个人设置表单（包含修改密码部分）
+        function renderProfileForm() {
+            const container = document.getElementById('profileContainer');
+            const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
+
+            container.innerHTML = `
+                <div class="profile-header">
+                    <h2>个人设置</h2>
+                </div>
+                <div class="avatar-section">
+                    <img src="${currentUser.avatar || '/avatar.png'}" alt="头像" class="avatar-preview" id="avatarPreview">
+                    <div class="avatar-upload">
+                        <label for="avatarInput" class="upload-btn">选择新头像</label>
+                        <input type="file" id="avatarInput" accept="image/*">
+                        <button class="clear-btn" id="clearAvatarBtn">恢复默认头像</button>
+                    </div>
+                </div>
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" value="${escapeHtml(currentUser.username)}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">邮箱</label>
+                        <input type="email" id="email" value="${escapeHtml(currentUser.email)}" readonly disabled>
+                        <small style="color: #999;">邮箱不可更改</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="bio">个人介绍</label>
+                        <textarea id="bio" placeholder="简单介绍一下自己...">${escapeHtml(currentUser.bio || '')}</textarea>
+                    </div>
+                    <button type="submit" class="btn" id="submitBtn">保存修改</button>
+                </form>
+
+                <!-- 修改密码区域 -->
+                <div class="section-divider"><span>修改密码</span></div>
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label for="oldPassword">原密码</label>
+                        <input type="password" id="oldPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">新密码</label>
+                        <input type="password" id="newPassword" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">确认新密码</label>
+                        <input type="password" id="confirmPassword" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-secondary" id="changePasswordBtn">修改密码</button>
+                </form>
+
+                <div id="message" class="message"></div>
+
+                ${isAdmin ? `
+                <div class="admin-button-container">
+                    <a href="/admin/dashboard.html" class="admin-button">⚡ 进入后台 ⚡</a>
+                </div>
+                ` : ''}
+            `;
+
+            // 头像预览
+            const avatarInput = document.getElementById('avatarInput');
+            const avatarPreview = document.getElementById('avatarPreview');
+            const clearAvatarBtn = document.getElementById('clearAvatarBtn');
+
+            avatarInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        avatarPreview.src = e.target.result;
+                        avatarPreview.dataset.newAvatar = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            clearAvatarBtn.addEventListener('click', function() {
+                avatarPreview.src = '/avatar.png';
+                delete avatarPreview.dataset.newAvatar;
+                avatarInput.value = '';
+            });
+
+            // 个人资料表单提交
+            document.getElementById('profileForm').addEventListener('submit', saveProfile);
+            // 密码修改表单提交
+            document.getElementById('passwordForm').addEventListener('submit', changePassword);
+        }
+
+        // 保存个人资料
+        async function saveProfile(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const bio = document.getElementById('bio').value.trim();
+            const avatarPreview = document.getElementById('avatarPreview');
+            let avatar = avatarPreview.dataset.newAvatar || null;
+
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+
+            if (!username) {
+                showMessage('用户名不能为空', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span>保存中...';
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/user/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ username, bio, avatar })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentUser = data.data.user;
+                    localStorage.setItem('user', JSON.stringify(currentUser));
+                    updateNav();
+                    delete avatarPreview.dataset.newAvatar;
+                    showMessage('资料更新成功！', 'success');
+                } else {
+                    showMessage(data.error || '保存失败', 'error');
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                showMessage('网络错误，请重试', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '保存修改';
+            }
+        }
+
+        // 修改密码
+        async function changePassword(e) {
+            e.preventDefault();
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const messageDiv = document.getElementById('message');
+            const submitBtn = document.getElementById('changePasswordBtn');
+
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                showMessage('请填写所有密码字段', 'error');
+                return;
+            }
+            if (newPassword.length < 6) {
+                showMessage('新密码至少6位', 'error');
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                showMessage('两次输入的新密码不一致', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span>修改中...';
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/user/password`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ oldPassword, newPassword })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('密码修改成功！', 'success');
+                    document.getElementById('passwordForm').reset();
+                } else {
+                    showMessage(data.error || '修改失败', 'error');
+                }
+            } catch (error) {
+                console.error('修改密码失败:', error);
+                showMessage('网络错误，请重试', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '修改密码';
+            }
+        }
+
+        function showMessage(text, type) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = text;
+            msgDiv.className = `message ${type}`;
+            setTimeout(() => {
+                msgDiv.textContent = '';
+                msgDiv.className = 'message';
+            }, 3000);
+        }
+
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // 登出
+        window.logout = async function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`${API_BASE}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        };
+
+        // 加载页脚
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${API_BASE}/api/settings`);
+                const data = await response.json();
+                if (data.success) {
+                    const year = new Date().getFullYear();
+                    document.getElementById('footerText').textContent = data.data.footerText.replace('{year}', year);
+                } else {
+                    document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
+                }
+            } catch (error) {
+                document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
+            }
+        }
+
+        // 初始化
+        checkAuth();
+        loadSettings();
+    </script>
+</body>
+</html>

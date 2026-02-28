@@ -92,4 +92,9 @@ export class PostsAPI {
         const posts = await this.db.getAllPosts();
         return posts.filter(post => post.authorId === authorId);
     }
+    // 在 PostsAPI 类中
+    async getPostsByAuthor(authorId) {
+        const allPosts = await this.db.getAllPosts(true); // 获取所有文章（含草稿）
+        return allPosts.filter(post => post.authorId === authorId);
+    }
 }

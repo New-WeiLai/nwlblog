@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的文章 - Nwely（陌筏）の 博客</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .my-posts-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+        .page-header h2 {
+            color: #333;
+            font-size: 28px;
+        }
+        .new-post-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .new-post-btn:hover {
+            background: #5a67d8;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 2px solid #e1e1e1;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e1e1e1;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .post-title-cell {
+            max-width: 300px;
+        }
+        .post-title-cell a {
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .post-title-cell a:hover {
+            color: #667eea;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-published {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .status-draft {
+            background: #feebc8;
+            color: #744210;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-edit {
+            background: #667eea;
+            color: white;
+        }
+        .btn-edit:hover {
+            background: #5a67d8;
+        }
+        .btn-delete {
+            background: #e53e3e;
+            color: white;
+        }
+        .btn-delete:hover {
+            background: #c53030;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e53e3e;
+        }
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        /* 编辑器模态框（复用） */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h3 {
+            font-size: 24px;
+            color: #333;
+        }
+        .modal-close {
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+        .modal-close:hover {
+            color: #333;
+        }
+        .editor-toolbar {
+            background: #f8f9fa;
+            border: 1px solid #e1e1e1;
+            border-radius: 6px 6px 0 0;
+            padding: 10px;
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .editor-toolbar button {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .editor-toolbar button:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .editor-content {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 1px solid #e1e1e1;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .tag-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px;
+            border: 2px solid #e1e1e1;
+            border-radius: 6px;
+        }
+        .tag {
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .tag-input-field {
+            border: none;
+            outline: none;
+            flex: 1;
+            min-width: 100px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        .btn-default {
+            background: #e1e1e1;
+            color: #333;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-default:hover {
+            background: #d0d0d0;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="/avatar.png" alt="Nwely">
+                <h1>Nwely（陌筏）の 博客</h1>
+            </div>
+            <nav class="nav" id="nav">
+                <a href="/">首页</a>
+                <a href="/posts">文章</a>
+                <a href="/about">关于</a>
+                <span id="authLinks"></span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container my-posts-container" id="myPostsContainer">
+            <div class="page-header">
+                <h2>我的文章</h2>
+                <button class="new-post-btn" onclick="openEditor()">写新文章</button>
+            </div>
+            <div class="table-container">
+                <table id="postsTable">
+                    <thead>
+                        <tr>
+                            <th>标题</th>
+                            <th>状态</th>
+                            <th>发布日期</th>
+                            <th>阅读量</th>
+                            <th>评论数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="postsList">
+                        <tr><td colspan="6" class="loading">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p id="footerText"></p>
+        </div>
+    </footer>
+
+    <!-- 文章编辑模态框（复用之前的设计） -->
+    <div class="modal" id="editorModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="editorTitle">写新文章</h3>
+                <span class="modal-close" onclick="closeEditor()">&times;</span>
+            </div>
+            <form id="postForm">
+                <div class="form-group">
+                    <label for="postTitle">标题</label>
+                    <input type="text" id="postTitle" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>标签</label>
+                    <div class="tag-input" id="tagContainer">
+                        <div id="tagList"></div>
+                        <input type="text" class="tag-input-field" id="tagInput" placeholder="输入标签后按回车" onkeypress="handleTagKeypress(event)">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>内容</label>
+                    <div class="editor-toolbar">
+                        <button type="button" onclick="insertFormat('**', '**')">加粗</button>
+                        <button type="button" onclick="insertFormat('*', '*')">斜体</button>
+                        <button type="button" onclick="insertFormat('# ', '')">标题1</button>
+                        <button type="button" onclick="insertFormat('## ', '')">标题2</button>
+                        <button type="button" onclick="insertFormat('- ', '')">列表</button>
+                        <button type="button" onclick="insertFormat('[', '](url)')">链接</button>
+                        <button type="button" onclick="insertFormat('![', '](image-url)')">图片</button>
+                        <button type="button" onclick="insertFormat('```\n', '\n```')">代码块</button>
+                    </div>
+                    <textarea id="postContent" class="editor-content" placeholder="写点什么..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="featuredImage">特色图片URL</label>
+                    <input type="url" id="featuredImage" class="form-control" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label for="postExcerpt">摘要（选填）</label>
+                    <textarea id="postExcerpt" class="form-control" rows="3" placeholder="如果不填，将自动从内容生成"></textarea>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn-default" onclick="closeEditor()">取消</button>
+                    <button type="button" class="btn-primary" onclick="savePost('draft')">保存草稿</button>
+                    <button type="button" class="btn-primary" onclick="savePost('published')">发布</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ！！！请替换为你的 Worker 地址
+        const API_BASE = 'https://worker.blog.nwely.top';
+        let currentUser = null;
+        let currentPostId = null;
+        let tags = [];
+
+        // 检查登录并获取当前用户
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.data.user;
+                    updateNav();
+                    loadMyPosts();
+                } else {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        function updateNav() {
+            const authLinks = document.getElementById('authLinks');
+            authLinks.innerHTML = `
+                <div class="user-info">
+                    <img src="${currentUser.avatar || '/avatar.png'}" class="user-avatar" alt="avatar">
+                    <span>${currentUser.username}</span>
+                    <a href="/my-posts.html">我的文章</a>
+                    <a href="/profile.html">个人设置</a>
+                    <a href="#" onclick="logout()">登出</a>
+                </div>
+            `;
+        }
+
+        // 加载当前用户的所有文章（通过新接口 /api/user/posts）
+        async function loadMyPosts() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/user/posts`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    renderPosts(data.data.posts);
+                } else {
+                    document.getElementById('postsList').innerHTML = `<tr><td colspan="6" class="error">${data.error}</td></tr>`;
+                }
+            } catch (error) {
+                console.error('加载文章失败:', error);
+                document.getElementById('postsList').innerHTML = '<tr><td colspan="6" class="error">网络错误</td></tr>';
+            }
+        }
+
+        function renderPosts(posts) {
+            const tbody = document.getElementById('postsList');
+            if (!posts || posts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-message">你还没有写过文章，快去写一篇吧！</td></tr>';
+                return;
+            }
+            tbody.innerHTML = posts.map(post => `
+                <tr>
+                    <td class="post-title-cell">
+                        <a href="/post.html?id=${post.id}" target="_blank">${escapeHtml(post.title)}</a>
+                    </td>
+                    <td><span class="status-badge status-${post.status}">${post.status === 'published' ? '已发布' : '草稿'}</span></td>
+                    <td>${post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : '-'}</td>
+                    <td>${post.views || 0}</td>
+                    <td>${post.commentCount || 0}</td>
+                    <td class="action-buttons">
+                        <button class="btn-sm btn-edit" onclick="editPost('${post.id}')">编辑</button>
+                        <button class="btn-sm btn-delete" onclick="deletePost('${post.id}')">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openEditor() {
+            currentPostId = null;
+            document.getElementById('editorTitle').textContent = '写新文章';
+            document.getElementById('postForm').reset();
+            document.getElementById('postContent').value = '';
+            tags = [];
+            renderTags();
+            document.getElementById('editorModal').classList.add('show');
+        }
+
+        function closeEditor() {
+            document.getElementById('editorModal').classList.remove('show');
+        }
+
+        async function editPost(id) {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/posts/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    currentPostId = id;
+                    document.getElementById('editorTitle').textContent = '编辑文章';
+                    document.getElementById('postTitle').value = data.data.title;
+                    document.getElementById('postContent').value = data.data.content;
+                    document.getElementById('featuredImage').value = data.data.featuredImage || '';
+                    document.getElementById('postExcerpt').value = data.data.excerpt || '';
+                    tags = data.data.tags || [];
+                    renderTags();
+                    document.getElementById('editorModal').classList.add('show');
+                } else {
+                    alert('加载失败：' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                console.error('加载文章失败:', error);
+                alert('加载失败，请重试');
+            }
+        }
+
+        async function savePost(status) {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+            const featuredImage = document.getElementById('featuredImage').value;
+            const excerpt = document.getElementById('postExcerpt').value;
+
+            if (!title) { alert('请输入标题'); return; }
+            if (!content) { alert('请输入内容'); return; }
+
+            const postData = {
+                title,
+                content,
+                tags,
+                featuredImage: featuredImage || null,
+                excerpt: excerpt || null,
+                status
+            };
+
+            try {
+                const token = localStorage.getItem('token');
+                const url = currentPostId ? `${API_BASE}/api/posts/${currentPostId}` : `${API_BASE}/api/posts`;
+                const method = currentPostId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(postData)
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('保存成功！');
+                    closeEditor();
+                    loadMyPosts();
+                } else {
+                    alert('保存失败：' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                alert('保存失败，请重试');
+            }
+        }
+
+        async function deletePost(id) {
+            if (!confirm('确定删除这篇文章吗？')) return;
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/api/posts/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loadMyPosts();
+                } else {
+                    alert('删除失败：' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                alert('删除失败，请重试');
+            }
+        }
+
+        // 编辑器辅助函数
+        function insertFormat(before, after) {
+            const textarea = document.getElementById('postContent');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+            textarea.value = textarea.value.substring(0, start) + before + selectedText + after + textarea.value.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + before.length, end + before.length);
+        }
+
+        function handleTagKeypress(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const input = document.getElementById('tagInput');
+                const tag = input.value.trim();
+                if (tag && !tags.includes(tag)) {
+                    tags.push(tag);
+                    renderTags();
+                }
+                input.value = '';
+            }
+        }
+
+        function renderTags() {
+            const tagList = document.getElementById('tagList');
+            tagList.innerHTML = tags.map(t => `<span class="tag">${t}<span class="tag-remove" onclick="removeTag('${t}')">&times;</span></span>`).join('');
+        }
+
+        function removeTag(tag) {
+            tags = tags.filter(t => t !== tag);
+            renderTags();
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"]/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m];
+            });
+        }
+
+        // 登出
+        window.logout = async function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            }
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        };
+
+        // 加载页脚
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${API_BASE}/api/settings`);
+                const data = await response.json();
+                if (data.success) {
+                    const year = new Date().getFullYear();
+                    document.getElementById('footerText').textContent = data.data.footerText.replace('{year}', year);
+                } else {
+                    document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
+                }
+            } catch {
+                document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
+            }
+        }
+
+        checkAuth();
+        loadSettings();
+    </script>
+</body>
+</html>

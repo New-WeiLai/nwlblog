@@ -66,6 +66,47 @@ export class UsersAPI {
         const { password, ...safeUser } = updated;
         return safeUser;
     }
+    // 修改密码
+async changePassword(userId, oldPassword, newPassword) {
+    const user = await this.db.getUserById(userId);
+    if (!user) throw new Error('用户不存在');
+
+    // 验证原密码
+    const isValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isValid) throw new Error('原密码错误');
+
+    // 加密新密码
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.db.updateUser(userId, { password: hashedPassword });
+
+    return { success: true };
+}
+    // 更新当前用户个人资料（不需要管理员权限）
+async updateProfile(userId, data) {
+    const user = await this.db.getUserById(userId);
+    if (!user) throw new Error('用户不存在');
+
+    // 如果尝试修改用户名，检查唯一性
+    if (data.username && data.username !== user.username) {
+        const existingUser = await this.db.getUserByUsername(data.username);
+        if (existingUser) throw new Error('用户名已被占用');
+    }
+
+    // 限制头像大小（base64 大致估算）
+    if (data.avatar && data.avatar.length > 2 * 1024 * 1024) { // 2MB
+        throw new Error('头像文件过大，请压缩后重试');
+    }
+
+    const updates = {};
+    if (data.username) updates.username = data.username;
+    if (data.bio !== undefined) updates.bio = data.bio;
+    if (data.avatar !== undefined) updates.avatar = data.avatar; // 允许 null 恢复默认
+
+    const updatedUser = await this.db.updateUser(userId, updates);
+    // 移除密码字段
+    const { password, ...safeUser } = updatedUser;
+    return safeUser;
+}
 
     // 删除用户（管理员）
     async deleteUser(id, operatorId) {

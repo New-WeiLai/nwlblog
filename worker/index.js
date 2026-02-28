@@ -158,6 +158,40 @@ router.get('/api/auth/me', async (request, env) => {
         });
     }
 });
+// 用户个人资料更新（需登录）
+router.put('/api/user/profile', async (request, env) => {
+    try {
+        const { user } = await requireAuth(request, env);
+        const data = await request.json();
+        const usersAPI = new UsersAPI(env);
+        const updatedUser = await usersAPI.updateProfile(user.id, data);
+        return new Response(JSON.stringify({ success: true, data: { user: updatedUser } }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+// 修改密码（需登录）
+router.put('/api/user/password', async (request, env) => {
+    try {
+        const { user } = await requireAuth(request, env);
+        const { oldPassword, newPassword } = await request.json();
+        const usersAPI = new UsersAPI(env);
+        await usersAPI.changePassword(user.id, oldPassword, newPassword);
+        return new Response(JSON.stringify({ success: true }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
 
 // ==================== 文章路由（公开） ====================
 router.get('/api/posts', async (request, env) => {
@@ -239,6 +273,22 @@ router.delete('/api/posts/:id', async (request, env) => {
     } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
             status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+// 获取当前登录用户的所有文章（包含草稿）
+router.get('/api/user/posts', async (request, env) => {
+    try {
+        const { user } = await requireAuth(request, env);
+        const postsAPI = new PostsAPI(env);
+        const posts = await postsAPI.getPostsByAuthor(user.id); // 需要实现此方法
+        return new Response(JSON.stringify({ success: true, data: { posts } }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     }
 });
