@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文章详情 - Nwely（陌筏）の 博客</title>
     <link rel="stylesheet" href="/css/style.css">
-    <!-- 改用 showdown 库，它更稳定地支持标准 Markdown -->
+    <!-- 使用 showdown 替代 marked 确保标题正常渲染 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <style>
         .post-container {
@@ -56,15 +56,13 @@
             background: #f4f4f4;
             padding: 0.2em 0.4em;
             border-radius: 4px;
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
-            font-size: 0.9em;
+            font-family: monospace;
         }
         .post-content pre {
             background: #f4f4f4;
             padding: 1em;
             border-radius: 8px;
             overflow-x: auto;
-            margin: 1em 0;
         }
         .post-content pre code {
             background: none;
@@ -229,7 +227,7 @@
 
     <main class="main">
         <div class="container post-container" id="postContainer">
-            <!-- 文章内容将由 JavaScript 动态填充 -->
+            <!-- 文章内容将由 JS 动态填充 -->
         </div>
     </main>
 
@@ -240,10 +238,10 @@
     </footer>
 
     <script>
-        // 请务必修改为你的 Worker 地址
+        // ！！！请务必修改为你的 Worker 地址 ！！！
         const API_BASE = 'https://worker.blog.nwely.top';
 
-        // 创建 showdown 转换器，启用常用选项
+        // 创建 showdown 转换器（与之前相同）
         const converter = new showdown.Converter({
             simplifiedAutoLink: true,
             excludeTrailingPunctuationFromURLs: true,
@@ -257,13 +255,12 @@
             ghMentionsLink: 'https://github.com/{u}'
         });
 
-        // 获取文章 ID 从 URL 参数
         const urlParams = new URLSearchParams(window.location.search);
         const postId = urlParams.get('id');
 
-        let currentUser = null;
+        let currentUser = null; // 全局用户状态
 
-        // 加载用户信息
+        // 加载用户信息（返回 Promise）
         async function loadUser() {
             const token = localStorage.getItem('token');
             if (!token) {
@@ -271,7 +268,7 @@
                     <a href="/login">登录</a>
                     <a href="/register">注册</a>
                 `;
-                return;
+                return; // currentUser 保持 null
             }
 
             try {
@@ -282,19 +279,22 @@
                 if (data.success) {
                     currentUser = data.data.user;
                     document.getElementById('authLinks').innerHTML = `
-                      <div class="user-info">
-                        <img src="${currentUser.avatar || '/avatar.png'}" class="user-avatar" alt="avatar">
-                        <span>${currentUser.username}</span>
-                        <a href="/profile.html">个人设置</a>
-                        <a href="#" onclick="logout()">登出</a>
-                      </div>
+                        <div class="user-info">
+                            <img src="${currentUser.avatar || '/avatar.png'}" class="user-avatar" alt="avatar">
+                            <span>${currentUser.username}</span>
+                            <a href="/my-posts.html">我的文章</a>
+                            <a href="/profile.html">个人设置</a>
+                            <a href="#" onclick="logout()">登出</a>
+                        </div>
                     `;
                 } else {
                     localStorage.removeItem('token');
                 }
             } catch (error) {
                 console.error('加载用户失败:', error);
+                // 保持 currentUser = null
             }
+            // 不抛出错误，让后续继续
         }
 
         // 加载文章和评论
@@ -307,7 +307,6 @@
             try {
                 const response = await fetch(`${API_BASE}/api/posts/${postId}`);
                 const data = await response.json();
-                
                 if (!data.success) {
                     document.getElementById('postContainer').innerHTML = `<div class="error">${data.error || '文章加载失败'}</div>`;
                     return;
@@ -315,11 +314,6 @@
 
                 const post = data.data;
                 const comments = post.comments || [];
-
-                // 调试：输出原始内容
-                console.log('原始 Markdown:', post.content);
-
-                // 渲染文章
                 renderPost(post, comments);
             } catch (error) {
                 console.error('加载文章失败:', error);
@@ -329,18 +323,8 @@
 
         function renderPost(post, comments) {
             const container = document.getElementById('postContainer');
-            
-            // 使用 showdown 解析 Markdown
-            let contentHtml;
-            try {
-                contentHtml = converter.makeHtml(post.content);
-                console.log('解析后的 HTML:', contentHtml);
-            } catch (e) {
-                console.error('showdown 解析失败，使用纯文本显示:', e);
-                contentHtml = `<pre>${escapeHtml(post.content)}</pre>`;
-            }
+            const contentHtml = converter.makeHtml(post.content);
 
-            // 评论部分
             let commentsHtml = '';
             if (comments.length === 0) {
                 commentsHtml = '<p>暂无评论，来抢沙发吧！</p>';
@@ -356,6 +340,7 @@
                 `).join('');
             }
 
+            // 根据 currentUser 决定评论表单
             let commentFormHtml = '';
             if (currentUser) {
                 commentFormHtml = `
@@ -389,24 +374,12 @@
                 </div>
             `;
 
-            // 绑定评论事件
             if (currentUser) {
-                document.getElementById('commentForm').addEventListener('submit', submitComment);
+                document.getElementById('commentForm')?.addEventListener('submit', submitComment);
             }
         }
 
-        // HTML 转义函数（用于标题、作者等，防止 XSS）
-        function escapeHtml(text) {
-            if (!text) return '';
-            return String(text)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        // 提交评论
+        // 提交评论（保持不变）
         async function submitComment(e) {
             e.preventDefault();
             const content = document.getElementById('commentContent').value.trim();
@@ -429,7 +402,7 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    loadPost(); // 重新加载以显示新评论
+                    loadPost(); // 重新加载文章以显示新评论
                 } else {
                     alert(data.error || '评论失败');
                     btn.disabled = false;
@@ -443,19 +416,28 @@
             }
         }
 
-        // 加载站点设置（用于页脚）
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // 加载站点设置
         async function loadSettings() {
             try {
                 const response = await fetch(`${API_BASE}/api/settings`);
                 const data = await response.json();
                 if (data.success) {
                     const year = new Date().getFullYear();
-                    document.getElementById('footerText').textContent = 
-                        data.data.footerText.replace('{year}', year);
+                    document.getElementById('footerText').textContent = data.data.footerText.replace('{year}', year);
                 } else {
                     document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
                 }
-            } catch (error) {
+            } catch {
                 document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
             }
         }
@@ -474,10 +456,13 @@
             window.location.reload();
         };
 
-        // 初始化
-        loadUser();
-        loadPost();
-        loadSettings();
+        // ========== 初始化：确保用户信息加载完毕后再加载文章 ==========
+        async function init() {
+            await loadUser();   // 等待用户状态确定
+            await loadPost();   // 然后加载文章
+            loadSettings();     // 加载页脚
+        }
+        init();
     </script>
 </body>
 </html>
