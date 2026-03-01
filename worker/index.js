@@ -18,7 +18,7 @@ const corsHeaders = {
 
 const router = Router();
 
-// 处理 OPTIONS 预检请求
+// 处理 OPTIONS 预检请求.
 router.options('*', () => {
     return new Response(null, {
        /* headers: {
