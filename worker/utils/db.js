@@ -34,6 +34,7 @@ const KEYS = {
     GITHUB_USER: (githubId) => `github:${githubId}`,
     RESET_PASSWORD: (email) => `reset:${email.toLowerCase()}`,
     EMAIL_ATTEMPTS: (email) => `attempts:${email.toLowerCase()}`
+    OLDCHAT_USER: (uid) => `oldchat:${uid}`, // 存储 oldchat_uid -> user_id 的映射
 };
 
 export class Database {
@@ -483,6 +484,13 @@ export class Database {
                 expirationTtl: 60 * 60
             });
         }
+    }
+    async createOldChatUser(oldchatUid, userId) {
+        await this.kv.put(KEYS.OLDCHAT_USER(oldchatUid), userId);
+    }
+
+    async getUserIdByOldChat(oldchatUid) {
+        return await this.kv.get(KEYS.OLDCHAT_USER(oldchatUid));
     }
 }
 

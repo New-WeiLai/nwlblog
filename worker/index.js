@@ -1,3 +1,5 @@
+import showdown from 'showdown';
+import { OldChatAuth } from './api/oldchat.js';
 import { Router } from 'itty-router';
 import { AuthAPI } from './api/auth.js';
 import { PostsAPI } from './api/posts.js';
@@ -197,6 +199,25 @@ router.put('/api/user/password', async (request, env) => {
     } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
             status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+// OldChat 登录
+router.post('/api/auth/oldchat/login', async (request, env) => {
+    try {
+        const { identifier, password, device_id } = await request.json();
+        if (!identifier || !password) {
+            throw new Error('账号和密码不能为空');
+        }
+        const oldchat = new OldChatAuth(env);
+        const result = await oldchat.handleLogin(identifier, password, device_id || 'blog-web');
+        return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     }
@@ -679,27 +700,37 @@ router.get('/rss.xml', async (request, env) => {
 });
 
 // ==================== RSS 订阅源 ====================
-// 简单的 Markdown 转纯文本函数
-function stripMarkdown(md) {
+// 引入 showdown（如果你已经在其他地方使用，可以直接复用；如果没有，需要添加）
+// 注意：如果你没有在 Worker 中使用 showdown，你需要导入它。
+// 由于 Worker 环境支持 ES Module，我们可以动态导入或者提前安装。
+// 为简化，我们假设你在代码中已经使用 showdown，否则需要先安装。
+
+// 如果还没有 showdown，请运行: npm install showdown
+// 并在文件顶部导入: import showdown from 'showdown';
+
+// 为了确保能运行，我们使用之前已经导入的 converter（如果之前已经创建）
+// 如果你之前没有创建，可以在这里创建：
+// const converter = new showdown.Converter({ simpleLineBreaks: true, ghCompatibleHeaderId: true });
+
+// 假设之前已经创建了 converter 对象，如果没有，需要创建。
+
+// 为了兼容你的项目结构，我们假设没有全局 converter，所以这里动态创建：
+function markdownToHtml(md) {
     if (!md) return '';
-    let text = md
-        // 移除标题标记（如 #, ##）
-        .replace(/^#+\s*/gm, '')
-        // 移除粗体 **text** 和 __text__
-        .replace(/(\*\*|__)(.*?)\1/g, '$2')
-        // 移除斜体 *text* 和 _text_
-        .replace(/(\*|_)(.*?)\1/g, '$2')
-        // 移除链接，保留文字 [text](url)
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
-        // 移除图片，保留 alt 文字 ![alt](url)
-        .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '$1')
-        // 移除代码块 ```code```
-        .replace(/```[\s\S]*?```/g, '')
-        // 移除行内代码 `code`
-        .replace(/`([^`]+)`/g, '$1')
-        // 将连续三个以上换行缩减为两个
-        .replace(/\n{3,}/g, '\n\n');
-    return text.trim();
+    const converter = new showdown.Converter({
+        simplifiedAutoLink: true,
+        excludeTrailingPunctuationFromURLs: true,
+        strikethrough: true,
+        tables: true,
+        tasklists: true,
+        openLinksInNewWindow: true,
+        emoji: true,
+        ghCodeBlocks: true,
+        ghMentions: true,
+        ghMentionsLink: 'https://github.com/{u}',
+        simpleLineBreaks: true
+    });
+    return converter.makeHtml(md);
 }
 
 router.get('/rss.xml', async (request, env) => {
@@ -727,7 +758,9 @@ router.get('/rss.xml', async (request, env) => {
         <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
         <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
         ${posts.map(post => {
-            // 将 Markdown 转换为纯文本并截取前 500 字作为摘要
+            // 将 Markdown 转换为 HTML
+            const contentHtml = markdownToHtml(post.content);
+            // 可选：生成纯文本摘要
             const plainText = stripMarkdown(post.content);
             const summary = plainText.length > 500 ? plainText.substring(0, 500) + '…' : plainText;
             return `
@@ -736,7 +769,7 @@ router.get('/rss.xml', async (request, env) => {
             <link>${siteUrl}/post.html?id=${post.id}</link>
             <guid isPermaLink="false">${siteUrl}/post.html?id=${post.id}</guid>
             <pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate>
-            <description><![CDATA[${escapeXml(summary)}]]></description>
+            <description><![CDATA[${contentHtml}]]></description>
         </item>`;
         }).join('')}
     </channel>
@@ -754,7 +787,20 @@ router.get('/rss.xml', async (request, env) => {
     }
 });
 
-// 简单的 XML 转义函数（用于标题等）
+// 简单的 Markdown 转纯文本函数（用于摘要，可选）
+function stripMarkdown(md) {
+    if (!md) return '';
+    return md
+        .replace(/^#+\s*/gm, '')
+        .replace(/(\*\*|__)(.*?)\1/g, '$2')
+        .replace(/(\*|_)(.*?)\1/g, '$2')
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+        .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '$1')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\n{3,}/g, '\n\n');
+}
+
 function escapeXml(unsafe) {
     if (!unsafe) return '';
     return unsafe.replace(/[<>&'"]/g, (c) => {

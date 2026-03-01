@@ -144,6 +144,10 @@
             </svg>
             GitHub登录
         </button>
+        <!-- 在 .divider 后面或 .links 内添加 -->
+        <div class="divider"><span>或</span></div>
+        <!-- 新增 OldChat 按钮 -->
+        <button class="btn" id="oldchatBtn" style="margin-top: 10px; background: #4a5568;">OldChat登录</button>
         <div class="links">
             <a href="/register">立即注册</a>
             <a href="/forgot-password">忘记密码？</a>
@@ -235,6 +239,10 @@
             } else if (error) {
                 showMessage('GitHub登录失败: ' + error, true);
             }
+        });
+            // 在 JavaScript 中添加
+        document.getElementById('oldchatBtn').addEventListener('click', () => {
+          window.location.href = '/oldchat-login.html';
         });
     </script>
 </body>

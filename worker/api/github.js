@@ -16,62 +16,71 @@ export class GitHubAuth {
         const params = new URLSearchParams({
             client_id: this.clientId,
             redirect_uri: this.redirectUri,
-            scope: 'user', // 请求所有用户信息权限（包含 profile 和 email）
+            scope: 'read:user user:email', // 请求所有用户信息
             state: state,
         });
         return `https://github.com/login/oauth/authorize?${params.toString()}`;
     }
 
     /**
-     * 用 code 换取 access token
+     * 用 code 换取 access token（增强错误处理）
      */
     async getAccessToken(code) {
-        const url = 'https://github.com/login/oauth/access_token';
-        const body = {
-            client_id: this.clientId,
-            client_secret: this.clientSecret,
-            code,
-            redirect_uri: this.redirectUri,
-        };
-
         let response;
         try {
-            response = await fetch(url, {
+            response = await fetch('https://github.com/login/oauth/access_token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
                 },
-                body: JSON.stringify(body),
+                body: JSON.stringify({
+                    client_id: this.clientId,
+                    client_secret: this.clientSecret,
+                    code,
+                    redirect_uri: this.redirectUri,
+                }),
             });
-        } catch (err) {
-            console.error('GitHub token 请求网络错误:', err);
+        } catch (fetchError) {
+            console.error('GitHub token 请求网络错误:', fetchError);
             throw new Error('GitHub 授权服务器连接失败');
         }
 
-        // 检查 HTTP 状态和响应类型
         const contentType = response.headers.get('content-type') || '';
-        if (!response.ok || !contentType.includes('application/json')) {
+        // 处理 HTTP 错误状态
+        if (!response.ok) {
+            let errorMsg = `GitHub 授权失败 (HTTP ${response.status})`;
+            if (contentType.includes('application/json')) {
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error_description || errorData.error || errorMsg;
+                } catch (e) {
+                    // 忽略解析错误
+                }
+            } else {
+                const errorText = await response.text();
+                errorMsg += `: ${errorText.substring(0, 200)}`;
+            }
+            console.error('GitHub token 错误:', { status: response.status, body: errorMsg });
+            throw new Error(errorMsg);
+        }
+
+        if (!contentType.includes('application/json')) {
             const errorText = await response.text();
-            console.error('GitHub token 响应异常', {
-                status: response.status,
-                statusText: response.statusText,
-                headers: Object.fromEntries(response.headers),
-                body: errorText.slice(0, 500),
-            });
-            throw new Error(`GitHub 授权失败 (HTTP ${response.status})`);
+            console.error('GitHub token 响应非 JSON:', errorText.substring(0, 500));
+            throw new Error('GitHub 返回了无效的响应格式');
         }
 
         let data;
         try {
             data = await response.json();
-        } catch (err) {
-            console.error('解析 GitHub token 响应 JSON 失败:', err);
+        } catch (jsonError) {
+            console.error('解析 GitHub token 响应 JSON 失败:', jsonError);
             throw new Error('GitHub 返回了无效的响应格式');
         }
 
         if (data.error) {
-            console.error('GitHub token 错误响应:', data);
+            console.error('GitHub token 错误:', data);
             throw new Error(data.error_description || data.error || 'GitHub 认证失败');
         }
 
@@ -79,42 +88,44 @@ export class GitHubAuth {
     }
 
     /**
-     * 用 access token 获取用户信息（同时尝试获取邮箱）
+     * 用 access token 获取用户信息（优先邮箱）
      */
     async getUserInfo(accessToken) {
-        // 获取用户基本信息
-        let userResponse;
+        let response;
         try {
-            userResponse = await fetch('https://api.github.com/user', {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    Accept: 'application/json',
-                },
+            response = await fetch('https://api.github.com/user', {
+                headers: { Authorization: `Bearer ${accessToken}` },
             });
-        } catch (err) {
-            console.error('GitHub 用户信息请求网络错误:', err);
+        } catch (fetchError) {
+            console.error('GitHub 用户信息请求网络错误:', fetchError);
             throw new Error('获取 GitHub 用户信息失败');
         }
 
-        const userContentType = userResponse.headers.get('content-type') || '';
-        if (!userResponse.ok || !userContentType.includes('application/json')) {
-            const errorText = await userResponse.text();
-            console.error('GitHub 用户信息响应异常', {
-                status: userResponse.status,
-                body: errorText.slice(0, 500),
-            });
-            throw new Error(`获取 GitHub 用户信息失败 (HTTP ${userResponse.status})`);
+        const contentType = response.headers.get('content-type') || '';
+        if (!response.ok) {
+            let errorMsg = `获取 GitHub 用户信息失败 (HTTP ${response.status})`;
+            if (contentType.includes('application/json')) {
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.message || errorMsg;
+                } catch (e) {}
+            }
+            throw new Error(errorMsg);
+        }
+
+        if (!contentType.includes('application/json')) {
+            throw new Error('GitHub 返回了无效的用户信息格式');
         }
 
         let userData;
         try {
-            userData = await userResponse.json();
-        } catch (err) {
-            console.error('解析 GitHub 用户信息 JSON 失败:', err);
+            userData = await response.json();
+        } catch (jsonError) {
+            console.error('解析 GitHub 用户信息 JSON 失败:', jsonError);
             throw new Error('GitHub 返回了无效的用户信息格式');
         }
 
-        // 如果基本信息中没有 email，尝试从 /user/emails 获取
+        // 获取邮箱（如果主信息中没有）
         if (!userData.email) {
             try {
                 const emailsResponse = await fetch('https://api.github.com/user/emails', {
@@ -122,19 +133,15 @@ export class GitHubAuth {
                 });
                 if (emailsResponse.ok) {
                     const emails = await emailsResponse.json();
-                    const primary = emails.find((e) => e.primary && e.verified);
-                    userData.email = primary ? primary.email : null;
+                    // 优先 primary && verified，其次任意 verified
+                    const verifiedEmail = emails.find(e => e.primary && e.verified) || emails.find(e => e.verified);
+                    userData.email = verifiedEmail ? verifiedEmail.email : null;
                 } else {
                     console.warn('获取用户邮箱列表失败:', emailsResponse.status);
                 }
-            } catch (err) {
-                console.warn('获取用户邮箱列表异常:', err);
+            } catch (emailError) {
+                console.warn('获取用户邮箱列表异常:', emailError);
             }
-        }
-
-        // 如果仍然没有邮箱，则抛出错误（可根据业务决定是否允许无邮箱的用户）
-        if (!userData.email) {
-            throw new Error('无法获取 GitHub 用户的公开邮箱，请确保邮箱在 GitHub 中设置为公开');
         }
 
         return {
@@ -157,7 +164,7 @@ export class GitHubAuth {
         // 2. 获取用户信息
         const githubUser = await this.getUserInfo(accessToken);
 
-        // 3. 检查是否已存在 GitHub 关联
+        // 3. 检查是否已存在 GitHub 关联（通过关联表）
         let userId = await this.db.getUserIdByGitHub(githubUser.githubId);
         let user = null;
 
@@ -169,16 +176,15 @@ export class GitHubAuth {
             user = await this.db.getUserByEmail(githubUser.email);
 
             if (user) {
-                // 存在邮箱相同的用户，关联 GitHub
+                // 存在邮箱相同的用户，建立 GitHub 关联（不更新用户表内的 githubId）
                 await this.db.createGitHubUser(githubUser.githubId, user.id);
-                // 更新头像（可选）
-                await this.db.updateUser(user.id, {
-                    avatar: user.avatar || githubUser.avatar,
-                    githubId: githubUser.githubId,
-                });
+                // 可选：更新用户头像（如果用户没有设置过头像）
+                if (!user.avatar) {
+                    await this.db.updateUser(user.id, { avatar: githubUser.avatar });
+                }
             } else {
-                // 不存在，创建新用户
-                const randomPassword = crypto.randomUUID() + Math.random();
+                // 不存在，创建新用户（不存 githubId）
+                const randomPassword = crypto.randomUUID(); // 简化随机密码
                 const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
                 user = await this.db.createUser({
@@ -188,14 +194,15 @@ export class GitHubAuth {
                     role: 'user',
                     avatar: githubUser.avatar,
                     bio: githubUser.bio,
-                    githubId: githubUser.githubId,
+                    // 注意：此处不再传入 githubId
                 });
 
+                // 建立 GitHub 关联
                 await this.db.createGitHubUser(githubUser.githubId, user.id);
             }
         } else {
-            // 没有邮箱，无法创建用户（理论上前面已抛出异常，但保留兜底）
-            throw new Error('无法获取 GitHub 用户邮箱');
+            // 无法获取邮箱，拒绝创建用户（可根据业务调整）
+            throw new Error('无法获取 GitHub 用户邮箱，请确保在 GitHub 中设置了公开邮箱');
         }
 
         // 4. 创建会话

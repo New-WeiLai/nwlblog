@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OldChat登录 - Nwely（陌筏）の 博客</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .oldchat-container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 { text-align: center; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #555; }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover { background: #5a67d8; }
+        .error { color: #e53e3e; margin-top: 10px; text-align: center; }
+        .back-link { text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="/avatar.png" alt="Nwely">
+                <h1>Nwely（陌筏）の 博客</h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container oldchat-container">
+            <h2>使用 OldChat 账号登录</h2>
+            <form id="oldchatLoginForm">
+                <div class="form-group">
+                    <label for="identifier">用户名 / 邮箱</label>
+                    <input type="text" id="identifier" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">登录</button>
+                <div id="errorMessage" class="error"></div>
+            </form>
+            <div class="back-link">
+                <a href="/login">← 返回其他登录方式</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p id="footerText"></p>
+        </div>
+    </footer>
+
+    <script>
+        const API_BASE = 'https://worker.blog.nwely.top'; // 请替换为你的 Worker 地址
+
+        document.getElementById('oldchatLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const identifier = document.getElementById('identifier').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const submitBtn = document.querySelector('button[type="submit"]');
+
+            errorDiv.textContent = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = '登录中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/oldchat/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier, password, device_id: 'blog-web' })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    window.location.href = '/';
+                } else {
+                    errorDiv.textContent = data.error || '登录失败';
+                }
+            } catch (err) {
+                errorDiv.textContent = '网络错误，请重试';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '登录';
+            }
+        });
+
+        // 加载页脚
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${API_BASE}/api/settings`);
+                const data = await response.json();
+                if (data.success) {
+                    const year = new Date().getFullYear();
+                    document.getElementById('footerText').textContent = data.data.footerText.replace('{year}', year);
+                }
+            } catch {}
+        }
+        loadSettings();
+    </script>
+</body>
+</html>
