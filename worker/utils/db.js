@@ -33,7 +33,7 @@ const KEYS = {
     EMAIL_VERIFICATION: (email) => `verify:${email.toLowerCase()}`,
     GITHUB_USER: (githubId) => `github:${githubId}`,
     RESET_PASSWORD: (email) => `reset:${email.toLowerCase()}`,
-    EMAIL_ATTEMPTS: (email) => `attempts:${email.toLowerCase()}`
+    EMAIL_ATTEMPTS: (email) => `attempts:${email.toLowerCase()}`,
     OLDCHAT_USER: (uid) => `oldchat:${uid}`, // 存储 oldchat_uid -> user_id 的映射
 };
 
