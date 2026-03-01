@@ -7,6 +7,7 @@ import { UsersAPI } from './api/users.js';
 import { CommentsAPI } from './api/comments.js';
 import { SettingsAPI } from './api/settings.js';
 import { requireAuth, requireAdmin, requireSuperAdmin } from './middleware/auth.js';
+import { OAuthServer } from './api/oauth.js';
 
 // CORS 头
 const corsHeaders = {
@@ -18,17 +19,7 @@ const corsHeaders = {
 
 const router = Router();
 
-// 处理 OPTIONS 预检请求.
-router.options('*', () => {
-    return new Response(null, {
-       /* headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Credentials': 'true',
-        }*/
-    });
-});
+// 注意：全局 OPTIONS 预检已在 export default 中处理，此处不再需要 router.options('*', ...)
 
 // 健康检查
 router.get('/api/health', () => new Response(JSON.stringify({
@@ -169,6 +160,7 @@ router.get('/api/auth/me', async (request, env) => {
         });
     }
 });
+
 // 用户个人资料更新（需登录）
 router.put('/api/user/profile', async (request, env) => {
     try {
@@ -186,6 +178,7 @@ router.put('/api/user/profile', async (request, env) => {
         });
     }
 });
+
 // 修改密码（需登录）
 router.put('/api/user/password', async (request, env) => {
     try {
@@ -203,6 +196,7 @@ router.put('/api/user/password', async (request, env) => {
         });
     }
 });
+
 // OldChat 登录
 router.post('/api/auth/oldchat/login', async (request, env) => {
     try {
@@ -306,12 +300,13 @@ router.delete('/api/posts/:id', async (request, env) => {
         });
     }
 });
+
 // 获取当前登录用户的所有文章（包含草稿）
 router.get('/api/user/posts', async (request, env) => {
     try {
         const { user } = await requireAuth(request, env);
         const postsAPI = new PostsAPI(env);
-        const posts = await postsAPI.getPostsByAuthor(user.id); // 需要实现此方法
+        const posts = await postsAPI.getPostsByAuthor(user.id);
         return new Response(JSON.stringify({ success: true, data: { posts } }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -322,6 +317,7 @@ router.get('/api/user/posts', async (request, env) => {
         });
     }
 });
+
 // 为评论路由添加 OPTIONS 预检处理
 router.options('/api/posts/:postId/comments', () => {
     return new Response(null, { headers: corsHeaders });
@@ -521,13 +517,12 @@ router.get('/api/settings', async (request, env) => {
         });
     }
 });
-// 导入 OAuth 处理模块
-import { OAuthServer } from './api/oauth.js';
 
+// ==================== OAuth 2.0 ====================
 // 客户端注册（仅管理员可调用，需认证）
 router.post('/api/oauth/clients', async (request, env) => {
     try {
-        const { user } = await requireAdmin(request, env); // 只有管理员能注册第三方应用
+        const { user } = await requireAdmin(request, env);
         const { name, redirect_uri } = await request.json();
         const oauth = new OAuthServer(env);
         const client = await oauth.registerClient(name, redirect_uri);
@@ -548,7 +543,7 @@ router.get('/oauth/authorize', async (request, env) => {
         const url = new URL(request.url);
         const clientId = url.searchParams.get('client_id');
         const redirectUri = url.searchParams.get('redirect_uri');
-        const responseType = url.searchParams.get('response_type'); // 应为 'code'
+        const responseType = url.searchParams.get('response_type');
         const scope = url.searchParams.get('scope') || '';
         const state = url.searchParams.get('state');
 
@@ -557,10 +552,8 @@ router.get('/oauth/authorize', async (request, env) => {
         }
 
         const oauth = new OAuthServer(env);
-        // 验证客户端
         await oauth.validateClient(clientId, redirectUri);
 
-        // 此处应检查用户是否已登录，若未登录则跳转到登录页
         const authHeader = request.headers.get('Authorization');
         let user = null;
         if (authHeader) {
@@ -570,20 +563,17 @@ router.get('/oauth/authorize', async (request, env) => {
         }
 
         if (!user) {
-            // 保存当前请求参数到 session 或 cookie，登录后跳回
             const loginUrl = new URL('/login', env.SITE_URL);
             loginUrl.searchParams.set('redirect', request.url);
             return Response.redirect(loginUrl.toString(), 302);
         }
 
-        // 显示授权页面（简化：直接生成 code 并重定向，跳过用户确认）
         const code = await oauth.generateAuthorizationCode(clientId, user.id, redirectUri, scope);
         const redirectUrl = new URL(redirectUri);
         redirectUrl.searchParams.set('code', code);
         if (state) redirectUrl.searchParams.set('state', state);
         return Response.redirect(redirectUrl.toString(), 302);
     } catch (error) {
-        // 错误处理：跳转到 redirect_uri 并携带 error 参数
         const url = new URL(request.url);
         const redirectUri = url.searchParams.get('redirect_uri') || env.SITE_URL;
         const redirectUrl = new URL(redirectUri);
@@ -649,72 +639,8 @@ router.get('/oauth/userinfo', async (request, env) => {
         });
     }
 });
-// ==================== RSS 订阅源 ====================
-router.get('/rss.xml', async (request, env) => {
-    try {
-        const postsAPI = new PostsAPI(env);
-        const settingsAPI = new SettingsAPI(env);
-
-        // 获取博客设置
-        const settings = await settingsAPI.getPublicSettings();
-        const siteTitle = settings.siteTitle || 'Nwely（陌筏）の 博客';
-        const siteDescription = settings.siteDescription || '一个简洁美观的个人博客';
-        const siteUrl = env.SITE_URL; // 例如 https://blog.nwely.top
-
-        // 获取最近 20 篇已发布的文章
-        const result = await postsAPI.getPosts(1, 20, false); // 只返回已发布
-        const posts = result.posts;
-
-        // 构建 RSS XML
-        const rss = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>${escapeXml(siteTitle)}</title>
-        <link>${siteUrl}</link>
-        <description>${escapeXml(siteDescription)}</description>
-        <language>zh-cn</language>
-        <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
-        <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-        ${posts.map(post => `
-        <item>
-            <title>${escapeXml(post.title)}</title>
-            <link>${siteUrl}/post.html?id=${post.id}</link>
-            <guid isPermaLink="false">${siteUrl}/post.html?id=${post.id}</guid>
-            <pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate>
-            <description><![CDATA[${post.content}]]></description>
-        </item>
-        `).join('')}
-    </channel>
-</rss>`;
-
-        return new Response(rss, {
-            headers: {
-                'Content-Type': 'application/rss+xml; charset=utf-8',
-                'Cache-Control': 'max-age=3600', // 缓存1小时
-            }
-        });
-    } catch (error) {
-        console.error('生成 RSS 失败:', error);
-        return new Response('生成 RSS 失败', { status: 500 });
-    }
-});
 
 // ==================== RSS 订阅源 ====================
-// 引入 showdown（如果你已经在其他地方使用，可以直接复用；如果没有，需要添加）
-// 注意：如果你没有在 Worker 中使用 showdown，你需要导入它。
-// 由于 Worker 环境支持 ES Module，我们可以动态导入或者提前安装。
-// 为简化，我们假设你在代码中已经使用 showdown，否则需要先安装。
-
-// 如果还没有 showdown，请运行: npm install showdown
-// 并在文件顶部导入: import showdown from 'showdown';
-
-// 为了确保能运行，我们使用之前已经导入的 converter（如果之前已经创建）
-// 如果你之前没有创建，可以在这里创建：
-// const converter = new showdown.Converter({ simpleLineBreaks: true, ghCompatibleHeaderId: true });
-
-// 假设之前已经创建了 converter 对象，如果没有，需要创建。
-
-// 为了兼容你的项目结构，我们假设没有全局 converter，所以这里动态创建：
 function markdownToHtml(md) {
     if (!md) return '';
     const converter = new showdown.Converter({
@@ -733,61 +659,6 @@ function markdownToHtml(md) {
     return converter.makeHtml(md);
 }
 
-router.get('/rss.xml', async (request, env) => {
-    try {
-        const postsAPI = new PostsAPI(env);
-        const settingsAPI = new SettingsAPI(env);
-
-        const settings = await settingsAPI.getPublicSettings();
-        const siteTitle = settings.siteTitle || 'Nwely（陌筏）の 博客';
-        const siteDescription = settings.siteDescription || '一个简洁美观的个人博客';
-        const siteUrl = env.SITE_URL; // 例如 https://blog.nwely.top
-
-        // 获取最近 20 篇已发布的文章
-        const result = await postsAPI.getPosts(1, 20, false);
-        const posts = result.posts;
-
-        // 构建 RSS XML
-        const rss = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>${escapeXml(siteTitle)}</title>
-        <link>${siteUrl}</link>
-        <description>${escapeXml(siteDescription)}</description>
-        <language>zh-cn</language>
-        <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
-        <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-        ${posts.map(post => {
-            // 将 Markdown 转换为 HTML
-            const contentHtml = markdownToHtml(post.content);
-            // 可选：生成纯文本摘要
-            const plainText = stripMarkdown(post.content);
-            const summary = plainText.length > 500 ? plainText.substring(0, 500) + '…' : plainText;
-            return `
-        <item>
-            <title>${escapeXml(post.title)}</title>
-            <link>${siteUrl}/post.html?id=${post.id}</link>
-            <guid isPermaLink="false">${siteUrl}/post.html?id=${post.id}</guid>
-            <pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate>
-            <description><![CDATA[${contentHtml}]]></description>
-        </item>`;
-        }).join('')}
-    </channel>
-</rss>`;
-
-        return new Response(rss, {
-            headers: {
-                'Content-Type': 'application/rss+xml; charset=utf-8',
-                'Cache-Control': 'max-age=3600',
-            }
-        });
-    } catch (error) {
-        console.error('生成 RSS 失败:', error);
-        return new Response('生成 RSS 失败', { status: 500 });
-    }
-});
-
-// 简单的 Markdown 转纯文本函数（用于摘要，可选）
 function stripMarkdown(md) {
     if (!md) return '';
     return md
@@ -814,13 +685,62 @@ function escapeXml(unsafe) {
         }
     });
 }
+
+router.get('/rss.xml', async (request, env) => {
+    try {
+        const postsAPI = new PostsAPI(env);
+        const settingsAPI = new SettingsAPI(env);
+
+        const settings = await settingsAPI.getPublicSettings();
+        const siteTitle = settings.siteTitle || 'Nwely（陌筏）の 博客';
+        const siteDescription = settings.siteDescription || '一个简洁美观的个人博客';
+        const siteUrl = env.SITE_URL;
+
+        const result = await postsAPI.getPosts(1, 20, false);
+        const posts = result.posts;
+
+        const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>${escapeXml(siteTitle)}</title>
+        <link>${siteUrl}</link>
+        <description>${escapeXml(siteDescription)}</description>
+        <language>zh-cn</language>
+        <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
+        <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+        ${posts.map(post => {
+            const contentHtml = markdownToHtml(post.content);
+            return `
+        <item>
+            <title>${escapeXml(post.title)}</title>
+            <link>${siteUrl}/post.html?id=${post.id}</link>
+            <guid isPermaLink="false">${siteUrl}/post.html?id=${post.id}</guid>
+            <pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate>
+            <description><![CDATA[${contentHtml}]]></description>
+        </item>`;
+        }).join('')}
+    </channel>
+</rss>`;
+
+        return new Response(rss, {
+            headers: {
+                'Content-Type': 'application/rss+xml; charset=utf-8',
+                'Cache-Control': 'max-age=3600',
+            }
+        });
+    } catch (error) {
+        console.error('生成 RSS 失败:', error);
+        return new Response('生成 RSS 失败', { status: 500 });
+    }
+});
+
 // 404 处理
 router.all('*', () => new Response('Not Found', { status: 404 }));
 
-// ==================== 默认导出（事件处理器）====================
+// ==================== 默认导出 ====================
 export default {
     async fetch(request, env, ctx) {
-        // 处理所有 OPTIONS 预检请求，直接返回 CORS 头
+        // 处理所有 OPTIONS 预检请求
         if (request.method === 'OPTIONS') {
             return new Response(null, {
                 headers: {
