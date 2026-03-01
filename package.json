@@ -1,6 +1,6 @@
 {
   "name": "nwlblog",
-  "version": "1.1.4",
+  "version": "1.0.0",
   "description": "Nwely的个人博客系统",
   "main": "worker/index.js",
   "scripts": {
@@ -13,7 +13,7 @@
     "uuid": "^9.0.1",
     "resend": "^2.0.0",
     "showdown": "^2.1.0"
-  },  // <-- 这里加逗号
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240208.0",
     "wrangler": "^3.28.0"
