@@ -317,7 +317,32 @@ router.get('/api/user/posts', async (request, env) => {
         });
     }
 });
+// 发表评论（需登录）
+router.post('/api/posts/:postId/comments', async (request, env) => {
+    try {
+        const { user } = await requireAuth(request, env);
+        const postId = request.params.postId;
+        const { content } = await request.json();
 
+        if (!content || content.trim() === '') {
+            throw new Error('评论内容不能为空');
+        }
+
+        const commentsAPI = new CommentsAPI(env);
+        const result = await commentsAPI.createComment({ postId, content }, user.id);
+
+        return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        // 根据错误类型返回适当状态码
+        const status = error.message.includes('未登录') ? 401 : 400;
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
 // 为评论路由添加 OPTIONS 预检处理
 router.options('/api/posts/:postId/comments', () => {
     return new Response(null, { headers: corsHeaders });
