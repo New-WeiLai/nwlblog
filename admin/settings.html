@@ -136,8 +136,11 @@
                                     暂无背景图
                                 </div>
                             </div>
+                            <!-- 文件上传控件（保留，用于上传本地图片） -->
                             <input type="file" id="backgroundImage" accept="image/*" style="margin-top: 10px;">
                             <input type="hidden" id="backgroundImageUrl">
+                            <!-- 新增 URL 输入框 -->
+                            <input type="url" id="backgroundImageUrlInput" class="form-control" placeholder="或者输入图片 URL（如 https://t.mwm.moe/ycy）" style="margin-top: 10px;">
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -290,6 +293,12 @@
                     updateImagePreview('headerPreview', settings.headerImage || '/avatar.png');
                     if (settings.backgroundImage) {
                         updateImagePreview('backgroundPreview', settings.backgroundImage);
+                        // 如果是 URL 格式，同时显示在 URL 输入框
+                        if (settings.backgroundImage.startsWith('http')) {
+                            document.getElementById('backgroundImageUrlInput').value = settings.backgroundImage;
+                        }
+                    } else {
+                        document.getElementById('backgroundImageUrlInput').value = '';
                     }
                     
                     document.getElementById('primaryColor').value = settings.primaryColor || '#667eea';
@@ -338,18 +347,25 @@
                 reader.onload = function(e) {
                     updateImagePreview('backgroundPreview', e.target.result);
                     document.getElementById('backgroundImageUrl').value = e.target.result;
+                    // 清空 URL 输入框（文件优先）
+                    document.getElementById('backgroundImageUrlInput').value = '';
                 };
                 reader.readAsDataURL(file);
             }
         });
 
         async function saveSettings() {
+            // 优先使用上传的文件（base64），否则使用 URL 输入
+            const backgroundFile = document.getElementById('backgroundImageUrl').value;
+            const backgroundUrl = document.getElementById('backgroundImageUrlInput').value.trim();
+            const backgroundImage = backgroundFile || backgroundUrl || '';
+
             const settings = {
                 siteTitle: document.getElementById('siteTitle').value,
                 siteDescription: document.getElementById('siteDescription').value,
                 footerText: document.getElementById('footerText').value,
                 headerImage: document.getElementById('headerImageUrl').value,
-                backgroundImage: document.getElementById('backgroundImageUrl').value,
+                backgroundImage: backgroundImage,
                 primaryColor: document.getElementById('primaryColor').value,
                 secondaryColor: document.getElementById('secondaryColor').value,
                 postsPerPage: parseInt(document.getElementById('postsPerPage').value),

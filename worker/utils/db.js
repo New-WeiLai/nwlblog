@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
     siteTitle: 'Nwely（陌筏）の 博客',
     siteDescription: '一个简洁美观的个人博客',
     headerImage: '/avatar.png',
-    backgroundImage: '',  // 背景图默认为空，可在后台设置
+    backgroundImage: 'https://t.mwm.moe/ycy',  // 背景图默认为空，可在后台设置
     footerText: '© {year} Nwely的博客. All rights reserved.',
     allowRegistration: true,
     requireEmailVerification: false,

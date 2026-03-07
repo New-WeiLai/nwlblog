@@ -16,6 +16,8 @@ SITE_URL = "https://blog.nwely.top"
 WORKER_URL = "https://worker.blog.nwely.top"
 FROM_EMAIL = "no-reply@nwely.top"
 OLDCHAT_API_BASE = "http://60.205.94.101:8080"
+COLORYI_CLIENT_ID = "c4dbfda2ff0720ef573d5d2fdb1d140f9e79f0e4c299b33df717ce0e5aa1f3f0"
+COLORYI_CLIENT_SECRET = "dfe3d5195096bdb588f1f22dafd8089bad1c91e100621220238c0fe1a55d5fa8"
 
 [triggers]
 crons = ["0 0 * * *"]
