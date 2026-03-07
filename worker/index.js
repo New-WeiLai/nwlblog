@@ -1,5 +1,6 @@
 import showdown from 'showdown';
 import { OldChatAuth } from './api/oldchat.js';
+import { ColoryiAuth } from './api/coloryi.js';
 import { Router } from 'itty-router';
 import { AuthAPI } from './api/auth.js';
 import { PostsAPI } from './api/posts.js';
@@ -217,6 +218,47 @@ router.post('/api/auth/oldchat/login', async (request, env) => {
     }
 });
 
+
+// Coloryi 登录入口
+router.get('/api/auth/coloryi', async (request, env) => {
+    try {
+        const state = crypto.randomUUID();
+        const coloryi = new ColoryiAuth(env);
+        const authUrl = coloryi.getAuthorizationUrl(state);
+        // 可以将 state 存入 cookie 或 KV 用于后续验证
+        return Response.redirect(authUrl, 302);
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// Coloryi 回调
+router.get('/api/auth/coloryi/callback', async (request, env) => {
+    try {
+        const url = new URL(request.url);
+        const code = url.searchParams.get('code');
+        const state = url.searchParams.get('state');
+        
+        if (!code) throw new Error('未获取到授权码');
+        // 可选：验证 state 与之前保存的是否一致
+        
+        const coloryi = new ColoryiAuth(env);
+        const result = await coloryi.handleCallback(code, state);
+        
+        const redirectUrl = new URL('/login', env.SITE_URL);
+        redirectUrl.searchParams.set('token', result.token);
+        redirectUrl.searchParams.set('success', 'true');
+        
+        return Response.redirect(redirectUrl.toString(), 302);
+    } catch (error) {
+        const redirectUrl = new URL('/login', env.SITE_URL);
+        redirectUrl.searchParams.set('error', error.message);
+        return Response.redirect(redirectUrl.toString(), 302);
+    }
+});
 // ==================== 文章路由（公开） ====================
 router.get('/api/posts', async (request, env) => {
     try {

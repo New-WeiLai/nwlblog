@@ -34,6 +34,7 @@ const KEYS = {
     GITHUB_USER: (githubId) => `github:${githubId}`,
     RESET_PASSWORD: (email) => `reset:${email.toLowerCase()}`,
     EMAIL_ATTEMPTS: (email) => `attempts:${email.toLowerCase()}`,
+    COLORYI_USER: (coloryiId) => `coloryi:${coloryiId}`, // 新增 Coloryi 关联
     OLDCHAT_USER: (uid) => `oldchat:${uid}`, // 存储 oldchat_uid -> user_id 的映射
 };
 
@@ -485,12 +486,23 @@ export class Database {
             });
         }
     }
+
+    // OldChat 关联方法
     async createOldChatUser(oldchatUid, userId) {
         await this.kv.put(KEYS.OLDCHAT_USER(oldchatUid), userId);
     }
 
     async getUserIdByOldChat(oldchatUid) {
         return await this.kv.get(KEYS.OLDCHAT_USER(oldchatUid));
+    }
+
+    // Coloryi 关联方法（新增）
+    async createColoryiUser(coloryiId, userId) {
+        await this.kv.put(KEYS.COLORYI_USER(coloryiId), userId);
+    }
+
+    async getUserIdByColoryi(coloryiId) {
+        return await this.kv.get(KEYS.COLORYI_USER(coloryiId));
     }
 }
 
