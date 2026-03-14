@@ -138,9 +138,9 @@
                     document.getElementById('footerText').textContent = 
                         `© ${year} Nwely的博客. All rights reserved.`;
                     
-                    // 如果有背景图设置，应用到body
-                    if (data.data.settings.backgroundImage) {
-                        document.body.style.backgroundImage = `url(${data.data.settings.backgroundImage})`;
+                    // 修复点：直接使用 data.data.backgroundImage
+                    if (data.data.backgroundImage) {
+                        document.body.style.backgroundImage = `url(${data.data.backgroundImage})`;
                         document.body.style.backgroundSize = 'cover';
                         document.body.style.backgroundAttachment = 'fixed';
                     }

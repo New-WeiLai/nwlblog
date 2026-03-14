@@ -427,6 +427,24 @@ router.get('/api/admin/users', async (request, env) => {
     }
 });
 
+// 获取单个用户（管理员）- 新增路由
+router.get('/api/admin/users/:id', async (request, env) => {
+    try {
+        const { user } = await requireAdmin(request, env);
+        const id = request.params.id;
+        const usersAPI = new UsersAPI(env);
+        const userData = await usersAPI.getUser(id);
+        return new Response(JSON.stringify({ success: true, data: userData }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
 router.put('/api/admin/users/:id', async (request, env) => {
     try {
         const { user } = await requireAdmin(request, env);

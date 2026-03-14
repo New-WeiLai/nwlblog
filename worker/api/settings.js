@@ -64,9 +64,28 @@ export class SettingsAPI {
         return DEFAULT_SETTINGS;
     }
 
-    // 获取站点统计
+    // 获取站点统计（修复版）
     async getSiteStats() {
-        return await this.db.getStats();
+        // 获取所有文章（包括草稿）
+        const posts = await this.db.getAllPosts(true);
+        // 获取所有用户
+        const users = await this.db.getAllUsers();
+        
+        let totalComments = 0;
+        let pendingComments = 0;
+        // 遍历文章获取评论统计
+        for (const post of posts) {
+            const comments = await this.db.getCommentsByPost(post.id, true); // 包括未审核
+            totalComments += comments.length;
+            pendingComments += comments.filter(c => c.status === 'pending').length;
+        }
+        
+        return {
+            totalPosts: posts.length,
+            totalUsers: users.length,
+            totalComments,
+            pendingComments
+        };
     }
 
     // 上传图片（头图、背景图等）

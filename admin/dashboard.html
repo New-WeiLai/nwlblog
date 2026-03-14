@@ -201,6 +201,8 @@
                     document.getElementById('totalUsers').textContent = data.data.totalUsers || 0;
                     document.getElementById('totalComments').textContent = data.data.totalComments || 0;
                     document.getElementById('pendingComments').textContent = data.data.pendingComments || 0;
+                } else {
+                    console.error('加载统计失败:', data.error);
                 }
             } catch (error) {
                 console.error('加载统计失败:', error);
