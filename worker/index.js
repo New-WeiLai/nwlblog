@@ -199,14 +199,15 @@ router.put('/api/user/password', async (request, env) => {
 });
 
 // OldChat 登录
+// OldChat 登录
 router.post('/api/auth/oldchat/login', async (request, env) => {
     try {
-        const { identifier, password, device_id } = await request.json();
-        if (!identifier || !password) {
+        const payload = await request.json(); // 获取整个请求体
+        if (!payload.identifier || !payload.password) {
             throw new Error('账号和密码不能为空');
         }
         const oldchat = new OldChatAuth(env);
-        const result = await oldchat.handleLogin(identifier, password, device_id || 'blog-web');
+        const result = await oldchat.handleLogin(payload); // 传递整个 payload
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
