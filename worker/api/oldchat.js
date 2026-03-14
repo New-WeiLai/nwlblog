@@ -8,18 +8,16 @@ export class OldChatAuth {
     }
 
     /**
-     * 直接转发前端请求体给 OldChat，不添加任何字段
+     * 直接转发前端请求体给 OldChat，不添加任何额外头
      * @param {Object} payload - 前端发送的完整请求体
      * @returns {Promise<Object>} OldChat 返回的数据
      */
     async callOldChatLogin(payload) {
         const url = `${this.apiBase}/v1/auth/login`;
 
-        // 使用与 curl 相同的请求头
+        // 只保留最基本的 Content-Type 头，其余由浏览器默认
         const headers = {
-            'Content-Type': 'application/json',
-            'Accept': '*/*',           // 与 curl 的 Accept 一致
-            'User-Agent': 'curl/8.18.0' // 模拟 curl 的 User-Agent
+            'Content-Type': 'application/json'
         };
 
         let response;
