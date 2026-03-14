@@ -434,6 +434,13 @@
                 if (data.success) {
                     const year = new Date().getFullYear();
                     document.getElementById('footerText').textContent = data.data.footerText.replace('{year}', year);
+                    
+                    // 应用背景图
+                    if (data.data.backgroundImage) {
+                        document.body.style.backgroundImage = `url(${data.data.backgroundImage})`;
+                        document.body.style.backgroundSize = 'cover';
+                        document.body.style.backgroundAttachment = 'fixed';
+                    }
                 } else {
                     document.getElementById('footerText').textContent = `© ${new Date().getFullYear()} Nwely的博客. All rights reserved.`;
                 }
@@ -460,7 +467,7 @@
         async function init() {
             await loadUser();   // 等待用户状态确定
             await loadPost();   // 然后加载文章
-            loadSettings();     // 加载页脚
+            loadSettings();     // 加载页脚和背景图
         }
         init();
     </script>

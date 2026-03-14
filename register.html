@@ -266,6 +266,22 @@
             localStorage.setItem('token', token);
             window.location.href = '/';
         } else if (error) alert('GitHub登录失败: ' + error);
+
+        // 加载背景图
+        async function loadBackground() {
+            try {
+                const response = await fetch(`${API_BASE}/api/settings`);
+                const data = await response.json();
+                if (data.success && data.data.backgroundImage) {
+                    document.body.style.backgroundImage = `url(${data.data.backgroundImage})`;
+                    document.body.style.backgroundSize = 'cover';
+                    document.body.style.backgroundAttachment = 'fixed';
+                }
+            } catch (error) {
+                console.error('加载背景图失败:', error);
+            }
+        }
+        loadBackground();
     </script>
 </body>
 </html>
