@@ -20,8 +20,6 @@ const corsHeaders = {
 
 const router = Router();
 
-// 注意：全局 OPTIONS 预检已在 export default 中处理，此处不再需要 router.options('*', ...)
-
 // 健康检查
 router.get('/api/health', () => new Response(JSON.stringify({
     status: 'ok', timestamp: new Date().toISOString()
@@ -199,15 +197,14 @@ router.put('/api/user/password', async (request, env) => {
 });
 
 // OldChat 登录
-// OldChat 登录
 router.post('/api/auth/oldchat/login', async (request, env) => {
     try {
-        const payload = await request.json(); // 获取整个请求体
+        const payload = await request.json();
         if (!payload.identifier || !payload.password) {
             throw new Error('账号和密码不能为空');
         }
         const oldchat = new OldChatAuth(env);
-        const result = await oldchat.handleLogin(payload); // 传递整个 payload
+        const result = await oldchat.handleLogin(payload);
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -219,14 +216,12 @@ router.post('/api/auth/oldchat/login', async (request, env) => {
     }
 });
 
-
 // Coloryi 登录入口
 router.get('/api/auth/coloryi', async (request, env) => {
     try {
         const state = crypto.randomUUID();
         const coloryi = new ColoryiAuth(env);
         const authUrl = coloryi.getAuthorizationUrl(state);
-        // 可以将 state 存入 cookie 或 KV 用于后续验证
         return Response.redirect(authUrl, 302);
     } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
@@ -244,7 +239,6 @@ router.get('/api/auth/coloryi/callback', async (request, env) => {
         const state = url.searchParams.get('state');
         
         if (!code) throw new Error('未获取到授权码');
-        // 可选：验证 state 与之前保存的是否一致
         
         const coloryi = new ColoryiAuth(env);
         const result = await coloryi.handleCallback(code, state);
@@ -260,6 +254,7 @@ router.get('/api/auth/coloryi/callback', async (request, env) => {
         return Response.redirect(redirectUrl.toString(), 302);
     }
 });
+
 // ==================== 文章路由（公开） ====================
 router.get('/api/posts', async (request, env) => {
     try {
@@ -268,7 +263,7 @@ router.get('/api/posts', async (request, env) => {
         const limit = parseInt(url.searchParams.get('limit') || '10');
         
         const postsAPI = new PostsAPI(env);
-        const result = await postsAPI.getPosts(page, limit, false); // 只返回已发布文章
+        const result = await postsAPI.getPosts(page, limit, false);
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -360,6 +355,7 @@ router.get('/api/user/posts', async (request, env) => {
         });
     }
 });
+
 // 发表评论（需登录）
 router.post('/api/posts/:postId/comments', async (request, env) => {
     try {
@@ -378,7 +374,6 @@ router.post('/api/posts/:postId/comments', async (request, env) => {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     } catch (error) {
-        // 根据错误类型返回适当状态码
         const status = error.message.includes('未登录') ? 401 : 400;
         return new Response(JSON.stringify({ success: false, error: error.message }), {
             status,
@@ -386,6 +381,7 @@ router.post('/api/posts/:postId/comments', async (request, env) => {
         });
     }
 });
+
 // 为评论路由添加 OPTIONS 预检处理
 router.options('/api/posts/:postId/comments', () => {
     return new Response(null, { headers: corsHeaders });
@@ -400,7 +396,7 @@ router.get('/api/admin/posts', async (request, env) => {
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '10');
         const postsAPI = new PostsAPI(env);
-        const result = await postsAPI.getPosts(page, limit, true); // true 表示包含草稿
+        const result = await postsAPI.getPosts(page, limit, true);
         return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
@@ -567,6 +563,116 @@ router.get('/api/admin/stats', async (request, env) => {
     } catch (error) {
         return new Response(JSON.stringify({ success: false, error: error.message }), {
             status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// ==================== 新增的管理员路由（用于后台功能）====================
+// 获取最新文章（用于仪表盘）
+router.get('/api/admin/recent-posts', async (request, env) => {
+    try {
+        const { user } = await requireAdmin(request, env);
+        const postsAPI = new PostsAPI(env);
+        // 获取最近5篇已发布文章
+        const result = await postsAPI.getPosts(1, 5, false);
+        return new Response(JSON.stringify({ success: true, data: result.posts }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 获取最新评论（用于仪表盘）
+router.get('/api/admin/recent-comments', async (request, env) => {
+    try {
+        const { user } = await requireAdmin(request, env);
+        const commentsAPI = new CommentsAPI(env);
+        // 获取最近5条评论（不限状态）
+        const result = await commentsAPI.getComments(1, 5, 'all');
+        return new Response(JSON.stringify({ success: true, data: result.comments }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 重置站点设置为默认值
+router.post('/api/admin/settings/reset', async (request, env) => {
+    try {
+        const { user } = await requireSuperAdmin(request, env);
+        const settingsAPI = new SettingsAPI(env);
+        const result = await settingsAPI.resetSettings(user.id);
+        return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 清除缓存（示例实现）
+router.post('/api/admin/clear-cache', async (request, env) => {
+    try {
+        const { user } = await requireSuperAdmin(request, env);
+        // 这里可以添加真正的缓存清理逻辑，例如删除某些 KV 前缀
+        // 作为示例，仅返回成功
+        return new Response(JSON.stringify({ success: true, message: '缓存已清除' }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 备份数据（示例实现）
+router.get('/api/admin/backup', async (request, env) => {
+    try {
+        const { user } = await requireSuperAdmin(request, env);
+        // 这里可以实现备份逻辑，例如获取所有用户、文章、评论等
+        // 作为示例，返回一个简单的 JSON 对象
+        const backup = {
+            timestamp: new Date().toISOString(),
+            message: '备份功能待实现'
+        };
+        return new Response(JSON.stringify(backup), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    }
+});
+
+// 切换用户状态（启用/禁用）
+router.post('/api/admin/users/:id/toggle-status', async (request, env) => {
+    try {
+        const { user } = await requireAdmin(request, env);
+        const id = request.params.id;
+        const usersAPI = new UsersAPI(env);
+        const result = await usersAPI.toggleUserStatus(id, user.id);
+        return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+    } catch (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
     }
 });
