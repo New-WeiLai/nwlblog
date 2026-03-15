@@ -34,39 +34,29 @@
             object-fit: cover;
             margin-bottom: 15px;
         }
-        .avatar-upload {
+        .avatar-url-group {
             display: flex;
-            flex-direction: column;
-            align-items: center;
             gap: 10px;
+            align-items: center;
         }
-        .avatar-upload input[type="file"] {
-            display: none;
-        }
-        .avatar-upload .upload-btn {
-            background: #667eea;
-            color: white;
-            padding: 8px 20px;
+        .avatar-url-group input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e1e1e1;
             border-radius: 6px;
-            cursor: pointer;
             font-size: 14px;
-            transition: background 0.3s;
         }
-        .avatar-upload .upload-btn:hover {
-            background: #5a67d8;
-        }
-        .avatar-upload .clear-btn {
-            background: #e53e3e;
+        .avatar-url-group button {
+            background: #718096;
             color: white;
-            padding: 8px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
             border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
         }
-        .avatar-upload .clear-btn:hover {
-            background: #c53030;
+        .avatar-url-group button:hover {
+            background: #4a5568;
         }
         .form-group {
             margin-bottom: 20px;
@@ -219,7 +209,6 @@
         const API_BASE = 'https://worker.blog.nwely.top'; // 请替换为你的 Worker 地址
         let currentUser = null;
 
-        // 检查登录状态
         async function checkAuth() {
             const token = localStorage.getItem('token');
             if (!token) {
@@ -245,7 +234,6 @@
             }
         }
 
-        // 更新导航栏
         function updateNav() {
             const authLinks = document.getElementById('authLinks');
             authLinks.innerHTML = `
@@ -259,7 +247,6 @@
             `;
         }
 
-        // 渲染个人设置表单（包含修改密码部分）
         function renderProfileForm() {
             const container = document.getElementById('profileContainer');
             const isAdmin = currentUser.role === 'admin' || currentUser.role === 'super_admin';
@@ -270,10 +257,9 @@
                 </div>
                 <div class="avatar-section">
                     <img src="${currentUser.avatar || '/avatar.png'}" alt="头像" class="avatar-preview" id="avatarPreview">
-                    <div class="avatar-upload">
-                        <label for="avatarInput" class="upload-btn">选择新头像</label>
-                        <input type="file" id="avatarInput" accept="image/*">
-                        <button class="clear-btn" id="clearAvatarBtn">恢复默认头像</button>
+                    <div class="avatar-url-group">
+                        <input type="url" id="avatarUrl" placeholder="输入头像图片 URL" value="${currentUser.avatar || ''}">
+                        <button id="clearAvatarBtn">恢复默认</button>
                     </div>
                 </div>
                 <form id="profileForm">
@@ -293,7 +279,6 @@
                     <button type="submit" class="btn" id="submitBtn">保存修改</button>
                 </form>
 
-                <!-- 修改密码区域 -->
                 <div class="section-divider"><span>修改密码</span></div>
                 <form id="passwordForm">
                     <div class="form-group">
@@ -320,42 +305,33 @@
                 ` : ''}
             `;
 
-            // 头像预览
-            const avatarInput = document.getElementById('avatarInput');
+            // 头像预览随输入变化
+            const avatarUrlInput = document.getElementById('avatarUrl');
             const avatarPreview = document.getElementById('avatarPreview');
             const clearAvatarBtn = document.getElementById('clearAvatarBtn');
 
-            avatarInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        avatarPreview.src = e.target.result;
-                        avatarPreview.dataset.newAvatar = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
+            avatarUrlInput.addEventListener('input', function() {
+                if (this.value) {
+                    avatarPreview.src = this.value;
+                } else {
+                    avatarPreview.src = '/avatar.png';
                 }
             });
 
             clearAvatarBtn.addEventListener('click', function() {
+                avatarUrlInput.value = '';
                 avatarPreview.src = '/avatar.png';
-                delete avatarPreview.dataset.newAvatar;
-                avatarInput.value = '';
             });
 
-            // 个人资料表单提交
             document.getElementById('profileForm').addEventListener('submit', saveProfile);
-            // 密码修改表单提交
             document.getElementById('passwordForm').addEventListener('submit', changePassword);
         }
 
-        // 保存个人资料
         async function saveProfile(e) {
             e.preventDefault();
             const username = document.getElementById('username').value.trim();
             const bio = document.getElementById('bio').value.trim();
-            const avatarPreview = document.getElementById('avatarPreview');
-            let avatar = avatarPreview.dataset.newAvatar || null;
+            const avatar = document.getElementById('avatarUrl').value.trim() || null; // 如果为空则存 null
 
             const submitBtn = document.getElementById('submitBtn');
             const messageDiv = document.getElementById('message');
@@ -385,7 +361,6 @@
                     currentUser = data.data.user;
                     localStorage.setItem('user', JSON.stringify(currentUser));
                     updateNav();
-                    delete avatarPreview.dataset.newAvatar;
                     showMessage('资料更新成功！', 'success');
                 } else {
                     showMessage(data.error || '保存失败', 'error');
@@ -399,7 +374,6 @@
             }
         }
 
-        // 修改密码
         async function changePassword(e) {
             e.preventDefault();
             const oldPassword = document.getElementById('oldPassword').value;
@@ -472,7 +446,6 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // 登出
         window.logout = async function() {
             const token = localStorage.getItem('token');
             if (token) {
@@ -486,7 +459,6 @@
             window.location.href = '/login';
         };
 
-        // 加载页脚和背景图
         async function loadSettings() {
             try {
                 const response = await fetch(`${API_BASE}/api/settings`);
@@ -509,7 +481,6 @@
             }
         }
 
-        // 初始化
         checkAuth();
         loadSettings();
     </script>
