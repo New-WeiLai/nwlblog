@@ -8,31 +8,49 @@ export class OldChatAuth {
     }
 
     /**
-     * 直接转发前端请求体给 OldChat，不添加任何额外头
-     * @param {Object} payload - 前端发送的完整请求体
+     * 调用 OldChat 登录接口（带超时和完整字段）
+     * @param {Object} payload - 前端发送的完整请求体（至少包含 identifier 和 password）
      * @returns {Promise<Object>} OldChat 返回的数据
      */
     async callOldChatLogin(payload) {
         const url = `${this.apiBase}/v1/auth/login`;
-
-        // 只保留最基本的 Content-Type 头，其余由浏览器默认
-        const headers = {
-            'Content-Type': 'application/json'
+        // 构建完整请求体，补充必要字段
+        const requestBody = {
+            identifier: payload.identifier,
+            password: payload.password,
+            device_id: payload.device_id || 'blog-web',
+            device_name: payload.device_name || 'NwelyBlog',
+            platform: payload.platform || 'web',
+            app_version: payload.app_version || '1.0.0'
         };
+
+        // 使用 AbortController 实现超时（5秒）
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
 
         let response;
         try {
             response = await fetch(url, {
                 method: 'POST',
-                headers: headers,
-                body: JSON.stringify(payload) // 直接转发，不修改 payload
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(requestBody),
+                signal: controller.signal
             });
         } catch (err) {
+            clearTimeout(timeout);
+            if (err.name === 'AbortError') {
+                console.error('OldChat 登录请求超时');
+                throw new Error('OldChat 登录超时，请稍后重试');
+            }
             console.error('OldChat 登录请求网络错误:', err);
             throw new Error('OldChat 服务器连接失败');
         }
+        clearTimeout(timeout);
 
-        // 记录原始响应（用于调试）
+        // 读取原始响应文本，便于调试
         const responseText = await response.text();
         console.log('OldChat 原始响应:', {
             status: response.status,
@@ -53,25 +71,25 @@ export class OldChatAuth {
             }
         }
 
-        // 如果状态码不是 2xx，但返回了 JSON 错误
+        // 如果 HTTP 状态码不是 2xx，抛出错误
         if (!response.ok) {
             const errorMsg = data.error || data.message || `HTTP ${response.status}`;
             throw new Error(errorMsg);
         }
 
-        return data;
+        return data; // 包含 access_token, refresh_token, user
     }
 
     /**
-     * 处理 OldChat 登录，使用完整 payload 调用 OldChat
+     * 处理 OldChat 登录：验证凭证，关联或创建本地用户，生成会话 token
      * @param {Object} payload - 前端发送的完整请求体
-     * @returns {Promise<Object>} 本地用户和会话 token
+     * @returns {Promise<Object>} 包含本地用户和会话 token
      */
     async handleLogin(payload) {
-        // 1. 调用 OldChat 登录，直接转发 payload
+        // 1. 调用 OldChat 登录
         const oldchatData = await this.callOldChatLogin(payload);
         const oldchatUser = oldchatData.user;
-        const oldchatUid = oldchatUser.uid;
+        const oldchatUid = oldchatUser.id || oldchatUser.uid; // 兼容两种字段名
 
         // 2. 检查是否已存在 OldChat 关联
         let userId = await this.db.getUserIdByOldChat(oldchatUid);
@@ -86,33 +104,53 @@ export class OldChatAuth {
             }
 
             if (user) {
+                // 建立关联，并更新用户信息（头像等）
                 await this.db.createOldChatUser(oldchatUid, user.id);
-                if (!user.avatar && oldchatUser.avatar_url) {
-                    await this.db.updateUser(user.id, { avatar: oldchatUser.avatar_url });
+                // 可选更新用户信息（优先使用已有的，若没有则用 OldChat 的）
+                const updates = {};
+                if (!user.avatar && (oldchatUser.avatar_url || oldchatUser.avatar)) {
+                    updates.avatar = oldchatUser.avatar_url || oldchatUser.avatar;
                 }
                 if (!user.bio && oldchatUser.signature) {
-                    await this.db.updateUser(user.id, { bio: oldchatUser.signature });
+                    updates.bio = oldchatUser.signature;
+                }
+                if (Object.keys(updates).length > 0) {
+                    await this.db.updateUser(user.id, updates);
                 }
             } else {
                 // 创建新用户
                 const randomPassword = crypto.randomUUID();
                 const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-                let username = oldchatUser.username || `oldchat_${oldchatUid.slice(0, 8)}`;
+                // 生成用户名：优先使用 display_name 或 username，若冲突则添加随机后缀
+                let username = oldchatUser.display_name || oldchatUser.username || `oldchat_${oldchatUid.slice(0, 8)}`;
                 let existingUser = await this.db.getUserByUsername(username);
                 if (existingUser) {
                     username = `${username}_${Math.random().toString(36).substring(2, 6)}`;
                 }
 
+                // 邮箱处理：如果没有邮箱，生成一个占位邮箱
+                let email = oldchatUser.email;
+                if (!email) {
+                    email = `${oldchatUid}@oldchat.local`;
+                    // 确保邮箱唯一
+                    let suffix = 1;
+                    while (await this.db.getUserByEmail(email)) {
+                        email = `${oldchatUid}+${suffix}@oldchat.local`;
+                        suffix++;
+                    }
+                }
+
                 user = await this.db.createUser({
                     username,
-                    email: oldchatUser.email || null,
+                    email,
                     password: hashedPassword,
                     role: 'user',
-                    avatar: oldchatUser.avatar_url || null,
+                    avatar: oldchatUser.avatar_url || oldchatUser.avatar || null,
                     bio: oldchatUser.signature || null
                 });
 
+                // 建立 OldChat 关联
                 await this.db.createOldChatUser(oldchatUid, user.id);
             }
         }
